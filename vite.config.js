@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const ORS_KEY = env.VITE_ORS_KEY || env.ORS_KEY
+  const isCI = process.env.CI === 'true'
+
   return {
+    base: '/', // user site lives at root
     plugins: [react()],
     server: {
       proxy: {
@@ -12,10 +15,11 @@ export default defineConfig(({ mode }) => {
           target: 'https://api.openrouteservice.org',
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/ors/, ''),
+          rewrite: (p) => p.replace(/^\/ors/, ''),
           headers: ORS_KEY ? { Authorization: ORS_KEY } : {},
         },
       },
     },
+    build: { outDir: 'dist', sourcemap: isCI }
   }
 })
