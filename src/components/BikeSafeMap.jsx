@@ -17,13 +17,21 @@ const STEEP_MED_PCT  = 5
 const STEEP_HIGH_PCT = 8
 
 const WAYTYPE_LABELS = {
-  0:'Other / unknown', 1:'High-speed highway', 2:'Primary road', 3:'Secondary / local road',
-  4:'Multi-use path', 5:'Unpaved / rough track', 6:'Dedicated bike lane/track',
-  7:'Footway / sidewalk', 8:'Stairs', 9:'Ferry', 10:'Construction area'
+  0:'Other / unknown', 
+  1:'High-speed highway', 
+  2:'Primary road', 
+  3:'Secondary / local road',
+  4:'Multi-use path', 
+  5:'Unpaved / rough track', 
+  6:'Dedicated bike lane/track',
+  7:'Footway / sidewalk', 
+  8:'Stairs', 
+  9:'Ferry', 
+  10:'Construction area'
 }
 const wayLabel = (c) => WAYTYPE_LABELS[Number(c)] ?? 'Other / unknown'
 
-const http = async (url, opts = {}, timeout = 15000) => {
+const http = async (url, opts = {}, timeout = 20000) => {
   const ctl = new AbortController()
   const id = setTimeout(()=>ctl.abort(), timeout)
   try { return await fetch(url, { ...opts, signal: ctl.signal }) }
@@ -86,12 +94,27 @@ export default function BikeSafeMap(){
   const [biasBBox, setBiasBBox] = useState(null)
   const [acResetKey, setAcResetKey] = useState(0)
 
+  const [routes, setRoutes] = useState([])   // exactly 3 designated routes
+  const [activeRouteIdx, setActiveRouteIdx] = useState(0)
+  const activeRoute = routes[activeRouteIdx] || null
+
+  // --- risk overlay housekeeping
+  const safeRemoveLayer  = (m, id) => { try { if (m.getLayer(id))  m.removeLayer(id) } catch {} }
+  const safeRemoveSource = (m, id) => { try { if (m.getSource(id)) m.removeSource(id) } catch {} }
+  const clearRiskOverlay = (m) => {
+    safeRemoveLayer(m, 'route-risk-hover')
+    safeRemoveLayer(m, 'route-risk-line')
+    safeRemoveSource(m, 'route-risk')
+  }
+
   // map init (geolocate if allowed; else Mississauga)
   useEffect(() => {
-    if(!MAPTILER_KEY){ setErr('Missing MapTiler key. Set VITE_MAPTILER_KEY.'); return }
+    if(!MAPTILER_KEY)
+      { setErr('Missing MapTiler key. Set VITE_MAPTILER_KEY.'); return }
     let m
-    let cancelled = false
-    ;(async () => {
+    let cancelled = false;
+
+    (async () => {
       const center = await getInitialCenter()
       if (cancelled) return
       try{
@@ -180,6 +203,125 @@ export default function BikeSafeMap(){
     el.addEventListener('drop', onDrop)
     return () => { el.removeEventListener('dragover', onDragOver); el.removeEventListener('drop', onDrop) }
   }, [map, originCoord, destCoord])
+
+  // --- Draw designated routes, rebuild risk overlay when selection changes
+  useEffect(() => {
+    if (!map || !routes?.length || !map.isStyleLoaded?.()) return
+
+    try {
+      // draw 3 designated routes; dim those not active
+      routes.forEach((feat, idx) => {
+        const src = `route-${idx}`
+        const id  = `route-line-${idx}`
+        const isActive = idx === activeRouteIdx
+
+        if (!map.getSource(src)) map.addSource(src, { type: 'geojson', data: feat })
+        else map.getSource(src).setData(feat)
+
+        if (!map.getLayer(id)) {
+          map.addLayer({
+            id,
+            type: 'line',
+            source: src,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-width': isActive ? 8 : 5,          // thicker
+              'line-color': isActive ? '#60a5fa' : '#9ca3af',
+              'line-opacity': isActive ? 1.0 : 0.35
+            }
+          })
+          map.on('click', id, () => setActiveRouteIdx(idx))
+        } else {
+          map.setPaintProperty(id, 'line-width',  isActive ? 8 : 5)
+          map.setPaintProperty(id, 'line-color',  isActive ? '#60a5fa' : '#9ca3af')
+          map.setPaintProperty(id, 'line-opacity',isActive ? 1.0 : 0.35)
+        }
+      })
+
+      // rebuild risk overlay for the ACTIVE route
+      const active = routes[activeRouteIdx]
+      clearRiskOverlay(map)
+
+      const riskFC = toRiskFC(active)
+      if (riskFC?.features?.length) {
+        map.addSource('route-risk', { type:'geojson', data:riskFC })
+
+        map.addLayer({
+          id:'route-risk-line', type:'line', source:'route-risk',
+          layout:{ 'line-cap':'round','line-join':'round' },
+          paint:{
+            'line-width':10,  // thicker risk
+            'line-color':['match',['get','risk'],
+              'high','#ef4444','med','#f59e0b','low','#10b981','#10b981']
+          }
+        })
+
+        map.addLayer({
+          id:'route-risk-hover', type:'line', source:'route-risk',
+          paint:{ 'line-width':14, 'line-color':'#ffffff', 'line-opacity':0.25 },
+          filter:['==',['get','rid'],-1]
+        })
+        hoveredRidRef.current = -1
+      }
+
+      // update insights + directions + cursor + panel metrics
+      if (active) {
+        lastRouteRef.current = active
+        routeCoordsRef.current = active.geometry?.coordinates || []
+
+        const i = getInsights(active)
+        setInsights(i)
+        distKmRef.current = i?.distKm || []
+        setDirections(flatSteps(active))
+
+        // compute risk mix + bands against current distKm
+        if (riskFC?.features?.length) {
+          const kmByRisk = { low:0, med:0, high:0 }
+          for (const f of riskFC.features) {
+            const c = f.geometry?.coordinates || []
+            let len = 0
+            for (let k=1;k<c.length;k++){
+              const [x1,y1] = c[k-1], [x2,y2] = c[k]
+              len += haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
+            }
+            const r = f.properties?.risk
+            if (kmByRisk[r] != null) kmByRisk[r] += (len/1000)
+          }
+          const totalKm = kmByRisk.low + kmByRisk.med + kmByRisk.high || 1
+          setRiskMix({
+            ...kmByRisk, totalKm,
+            pctLow:Math.round((kmByRisk.low/totalKm)*100),
+            pctMed:Math.round((kmByRisk.med/totalKm)*100),
+            pctHigh:Math.round((kmByRisk.high/totalKm)*100),
+          })
+
+          const bands = []
+          const distKm = distKmRef.current
+          for (const f of riskFC.features){
+            const s = f.properties?.sIndex ?? 0
+            const e = f.properties?.eIndex ?? s
+            const fromKm = distKm[Math.max(0, Math.min(distKm.length-1, s))] ?? 0
+            const toKm   = distKm[Math.max(0, Math.min(distKm.length-1, e))] ?? fromKm
+            const risk   = f.properties?.risk || 'low'
+            const way    = f.properties?.way
+            const reasons = String(f.properties?.why || '')
+              .split(' • ').map(s => s.trim()).filter(Boolean)
+            bands.push({ fromKm, toKm, risk, wayLabel: wayLabel(way), reasons })
+          }
+          setRiskBands(bands)
+        }
+
+        fitRoute(active, { tightness: 1.6 })
+        ensureRouteCursor()
+        if (routeCoordsRef.current.length) {
+          const [lng, lat] = routeCoordsRef.current[0]
+          updateRouteCursor(lng, lat)
+        }
+      }
+    } catch (err) {
+      console.error('Map route draw error:', err)
+    }
+  }, [map, routes, activeRouteIdx])
 
   // hover popup for risk segments
   useEffect(() => {
@@ -419,7 +561,279 @@ export default function BikeSafeMap(){
     const [lng, lat] = feat.center; return { lng, lat }
   }
 
-  // routing
+  // --- risk + insights (kept as before)
+  const haversineMeters = (a,b) => {
+    const R=6371000, toRad = x=>x*Math.PI/180
+    const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lng-a.lng)
+    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2
+    return 2*R*Math.asin(Math.sqrt(s))
+  }
+  const avgGrade = (seg) => {
+    let dSum=0, dzSum=0
+    for (let i=1;i<seg.length;i++){
+      const [x1,y1,z1=0] = seg[i-1], [x2,y2,z2=0] = seg[i]
+      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
+      if (d>0){ dSum+=d; dzSum+=Math.abs(z2-z1) }
+    }
+    return dSum ? (dzSum/dSum)*100 : 0
+  }
+  const valueAt = (i, ranges, fallback=null) => { for (const [a,b,v] of ranges || []) if (i>=a && i<=b) return v; return fallback }
+  const gradeRisk = ({ suit, surf, avgPct }) => {
+    const reasons = []
+    const s = suit > 1 ? suit : suit * 10
+    if (s <= 4) reasons.push(`Lower suitability score (${s.toFixed(1)}/10)`)
+    else if (s <= 7) reasons.push(`Moderate suitability (${s.toFixed(1)}/10)`)
+    if (avgPct >= STEEP_HIGH_PCT) reasons.push(`Steep grade (~${avgPct.toFixed(1)}%)`)
+    else if (avgPct >= STEEP_MED_PCT) reasons.push(`Noticeable grade (~${avgPct.toFixed(1)}%)`)
+    const rough = ROUGH_SURFACES.has(surf); if (rough) reasons.push('Unpaved / rough surface')
+    const risk = (s <= 4) ? 'high' : ((s <= 7 || avgPct >= STEEP_HIGH_PCT || rough) ? 'med' : 'low')
+    return { risk, reasons }
+  }
+  const toRiskFC = (feature) => {
+    const coords = feature?.geometry?.coordinates || []
+    const extras = feature?.properties?.extras || {}
+    if (coords.length < 2) return null
+    const suitVals = extras.suitability?.values || []
+    const wayVals  = extras.waytype?.values || []
+    const surfVals = extras.surface?.values || []
+    const cuts = new Set([0, coords.length-1])
+    ;[suitVals, wayVals, surfVals].forEach(arr => { for (const [a,b] of arr || []) { cuts.add(a); cuts.add(b) } })
+    const idx = Array.from(cuts).sort((a,b)=>a-b)
+
+    const fc = { type:'FeatureCollection', features:[] }
+    let rid=0
+    for (let i=0;i<idx.length-1;i++){
+      const s = idx[i], e = Math.max(s+1, idx[i+1])
+      const m = Math.floor((s+e)/2)
+      const suit = valueAt(m, suitVals, 7)
+      const way  = valueAt(m, wayVals, null)
+      const surf = valueAt(m, surfVals, null)
+      const seg = coords.slice(s, e+1)
+      const avgPct = avgGrade(seg)
+      const { risk, reasons } = gradeRisk({ suit, surf, avgPct })
+      fc.features.push({
+        type:'Feature',
+        properties:{ rid, risk, suit, way, sIndex:s, eIndex:e, gradePct:+avgPct.toFixed(1), why:reasons.join(' • ') },
+        geometry:{ type:'LineString', coordinates: seg }
+      })
+      rid++
+    }
+    return fc
+  }
+  const getInsights = (feature) => {
+    const coords = feature.geometry?.coordinates || []
+    if (coords.length < 2) return null
+    let total=0, ascent=0, descent=0
+    const distKm=[0], elevM=[coords[0][2]??0], samples=[]
+    for (let i=1;i<coords.length;i++){
+      const [x1,y1,z1=0]=coords[i-1], [x2,y2,z2=0]=coords[i]
+      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
+      total += d; const dz = z2 - z1; if (dz>0) ascent+=dz; else descent+=-dz
+      distKm.push(total/1000); elevM.push(z2)
+      if (d>0){ const grade = dz/d; let v = 18 - 80*grade; v = Math.max(10, Math.min(v,28)); samples.push({ v, w:d }) }
+    }
+    const sumW = samples.reduce((s,x)=>s+x.w,0) || 1
+    const avgV = samples.reduce((s,x)=>s + x.v*(x.w/sumW), 0)
+    const etaMin = (total/1000) / Math.max(5, avgV) * 60
+    return { distKm, elevM, totalDistM:total, ascentM:ascent, descentM:descent, avgSpeedKph:avgV, etaMin }
+  }
+
+  // --- route picking helpers (distance/risk + 3 designated routes) ---
+  const distanceOf = (feature) =>
+    (feature?.properties?.summary?.distance) ??
+    (getInsights(feature)?.totalDistM ?? 0)
+
+  const riskScore = (feature) => {
+    const fc = toRiskFC(feature)
+    if (!fc?.features?.length) return 1e9
+    let lenM = 0, score = 0
+    for (const f of fc.features) {
+      const c = f.geometry?.coordinates || []
+      let seg = 0
+      for (let i=1;i<c.length;i++){
+        const [x1,y1] = c[i-1], [x2,y2] = c[i]
+        seg += haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
+      }
+      lenM += seg
+      const w = f.properties?.risk === 'high' ? 3 : (f.properties?.risk === 'med' ? 2 : 1)
+      score += w * seg
+    }
+    const km = Math.max(0.001, lenM/1000)
+    return score / km // avg weighted risk per km (lower is safer)
+  }
+
+  // Strong geometry signature (for distinctness)
+const routeSig = (feature, samples = 12) => {
+  const c = feature?.geometry?.coordinates || []
+  if (!c.length) return 'empty'
+  const n = c.length, picks = []
+  for (let i = 0; i < samples; i++) {
+    const j = Math.floor(i * (n - 1) / (samples - 1))
+    const [x, y] = c[j] || []
+    picks.push(+x?.toFixed?.(5), +y?.toFixed?.(5))
+  }
+  const dist = Math.round(distanceOf(feature) || 0)
+  return JSON.stringify([picks, dist])
+}
+const isSameRoute = (a, b) => routeSig(a) === routeSig(b)
+
+const byDistinctness = (arr) => {
+  const seen = new Set(), out = []
+  for (const f of arr || []) {
+    const sig = routeSig(f)
+    if (!seen.has(sig)) { seen.add(sig); out.push(f) }
+  }
+  return out
+}
+
+// Clone before labeling so labels don’t bleed between identical objects
+const cloneAndLabel = (f, _label, _tag) => {
+  const c = JSON.parse(JSON.stringify(f))     // deep clone
+  c.properties = { ...(c.properties || {}), _label, _tag }
+  return c
+}
+
+
+  // --- Robust ORS request with fallbacks for common 400s
+  const orsPost = async (body) => {
+    const apiKey = ORS_KEY || import.meta.env.VITE_ORS_KEY
+    if (!apiKey) throw new Error('Missing OpenRouteService key (VITE_ORS_KEY)')
+    const baseURL = `${ORS_BASE}/v2/directions/cycling-regular/geojson`
+    const headers = {
+      'Authorization': apiKey,
+      'content-type':'application/json',
+      'accept':'application/geo+json, application/json;q=0.9, */*;q=0.8'
+    }
+
+    const doFetch = async (b) => {
+      const res = await http(baseURL, { method:'POST', headers, body: JSON.stringify(b) }, 20000)
+      const text = await res.text()
+      const ct = (res.headers.get('content-type') || '').toLowerCase()
+      const json = ct.includes('json') ? JSON.parse(text) : null
+      return { res, text, json }
+    }
+
+    let cur = body
+    for (let attempt = 0; attempt < 3; attempt++){
+      const { res, text, json } = await doFetch(cur)
+      if (res.ok) return json
+      const msg = (json?.error?.message || json?.message || text || '').toString()
+
+      // fallback order:
+      if (res.status === 400 && /extra_info|suitability/i.test(msg) && Array.isArray(cur.extra_info) && cur.extra_info.includes('suitability')) {
+        cur = { ...cur, extra_info: cur.extra_info.filter(x => x !== 'suitability') }
+        continue
+      }
+      if (res.status === 400 && /profile_params|weightings|options/i.test(msg) && cur?.options?.profile_params) {
+        const options = { ...(cur.options || {}) }; delete options.profile_params
+        cur = { ...cur, options }
+        continue
+      }
+      if (res.status === 400 && /alternative_routes/i.test(msg) && cur?.options?.alternative_routes) {
+        const options = { ...(cur.options || {}) }; delete options.alternative_routes
+        cur = { ...cur, options }
+        continue
+      }
+      throw new Error(`ORS error ${res.status}: ${msg || 'bad request'}`)
+    }
+    throw new Error('ORS failed after retries')
+  }
+
+  // Returns up to N alternatives from ORS for a preference
+  async function fetchORSWithAlts(o, d, preference='recommended', altCount=3, weightFactor=1.6) {
+    const body = {
+      coordinates: [[o.lng,o.lat],[d.lng,d.lat]],
+      preference,
+      elevation: true,
+      instructions: true,
+      instructions_format: 'text',
+      extra_info: ['steepness','surface','waytype','suitability'],
+      options: {
+        profile_params: { weightings: { steepness_difficulty: 1 } },
+        alternative_routes: altCount > 1 ? {
+          target_count: altCount,
+          share_factor: 0.6,
+          weight_factor: weightFactor
+        } : undefined
+      }
+    }
+    const json = await orsPost(body)
+    const feats = (json?.features || []).map(f => {
+      f.properties = { ...(f.properties||{}), _preference: preference }
+      return f
+    })
+    return feats
+  }
+
+
+async function fetchThreeRoutes(o, d) {
+  // 1) Shortest (take the absolute shortest from a small pool)
+  const shortestPool = await fetchORSWithAlts(o, d, 'shortest', 3, 2.0).catch(() => [])
+  if (!shortestPool.length) throw new Error('No route (shortest)')
+  const shortest = [...shortestPool].sort((a,b)=>distanceOf(a)-distanceOf(b))[0]
+  const shortestDist = distanceOf(shortest)
+
+  // 2) Build a large, diverse candidate pool
+  const pools = await Promise.all([
+    fetchORSWithAlts(o, d, 'recommended', 8, 2.4).catch(() => []),
+    fetchORSWithAlts(o, d, 'recommended', 8, 3.0).catch(() => []),
+    fetchORSWithAlts(o, d, 'fastest',     6, 2.2).catch(() => []),
+  ])
+  let candidates = byDistinctness([ ...pools.flat(), ...shortestPool ])
+  // don't compare against itself in later picks
+  candidates = candidates.filter(f => !isSameRoute(f, shortest))
+
+  // 3) Safest overall (distinct from shortest)
+  let safest = [...candidates].sort((a,b)=>riskScore(a)-riskScore(b))
+                .find(f => !isSameRoute(f, shortest)) || shortest
+
+  // 4) Long & Scenic (pick longest distinct; if not clearly longer, still take a distinct alt)
+  const minLong = shortestDist * 1.25; // ≥ +25% vs shortest feels "long"
+  let scenic = [...candidates]
+    .filter(f => !isSameRoute(f, safest))
+    .sort((a,b)=>distanceOf(b)-distanceOf(a))[0]
+
+  if (!scenic || isSameRoute(scenic, shortest) || isSameRoute(scenic, safest)) {
+    // fallback: next-best distinct alt, prefer longer; if tie, prefer safer
+    scenic = [...candidates]
+      .filter(f => !isSameRoute(f, shortest) && !isSameRoute(f, safest))
+      .sort((a,b)=>{
+        const dl = distanceOf(b) - distanceOf(a)
+        if (Math.abs(dl) > 1) return dl
+        return riskScore(a) - riskScore(b)
+      })[0]
+  }
+
+  // 5) Assemble exactly three, cloning to avoid shared mutation
+  const out = []
+  const pushUnique = (f, label, tag) => {
+    if (!f) return
+    if (out.some(x => isSameRoute(x, f))) return
+    out.push(cloneAndLabel(f, label, tag))
+  }
+
+  pushUnique(shortest, 'Shortest', 'shortest')
+  pushUnique(safest,   'Safest',   'safest')
+
+  if (scenic && !isSameRoute(scenic, shortest) && !isSameRoute(scenic, safest)) {
+    const lbl = distanceOf(scenic) >= minLong ? 'Long & Scenic' : 'Alternate'
+    pushUnique(scenic, lbl, 'long')
+  }
+
+  // Backfill if ORS still gave only two distinct options
+  for (const c of candidates) {
+    if (out.length >= 3) break
+    pushUnique(c, 'Alternate', 'alt')
+  }
+  // Absolute last resort: clone shortest so UI always shows three
+  if (out.length < 3) pushUnique(shortest, 'Alternate', 'alt')
+
+  return out.slice(0, 3)
+}
+
+
+
+  // routing (uses designated routes)
   const route = async (overrides = {}) => {
     if(!map) return
     setErr(null); setInsights(null); setRiskMix(null); setRiskBands([]); setDirections([]); setRouting(true)
@@ -433,78 +847,14 @@ export default function BikeSafeMap(){
       setOriginCoord(o); setDestCoord(d)
       addOrMoveMarker('origin', o); addOrMoveMarker('dest', d)
 
-      const feature = await fetchORS(o, d)
-      lastRouteRef.current = feature
-      routeCoordsRef.current = feature.geometry?.coordinates || []
+      const features = await fetchThreeRoutes(o, d)
+      if (!Array.isArray(features) || !features.length) throw new Error('No route found')
 
-      const ins = getInsights(feature)
-      setInsights(ins)
-      distKmRef.current = ins?.distKm || []
+      setRoutes(features)           // three designated
+      setActiveRouteIdx(0)          // select "Shortest" by default
 
-      putGeoJSON('route', feature, {
-        id:'route-line', type:'line', source:'route',
-        layout:{ 'line-cap':'round','line-join':'round' },
-        paint:{ 'line-width':5,'line-color':'#60a5fa' }
-      })
-
-      const riskFC = toRiskFC(feature)
-      if (riskFC?.features?.length){
-        putGeoJSON('route-risk', riskFC, {
-          id:'route-risk-line', type:'line', source:'route-risk',
-          layout:{ 'line-cap':'round','line-join':'round' },
-          paint:{
-            'line-width':6,
-            'line-color':['match',['get','risk'],'high','#ef4444','med','#f59e0b','low','#10b981','#10b981']
-          }
-        })
-        if (!map.getLayer('route-risk-hover')) {
-          map.addLayer({
-            id:'route-risk-hover', type:'line', source:'route-risk',
-            paint:{ 'line-width':8, 'line-color':'#ffffff', 'line-opacity':0.25 },
-            filter:['==',['get','rid'],-1]
-          })
-        }
-
-        const kmByRisk = { low:0, med:0, high:0 }
-        for (const f of riskFC.features){
-          const c = f.geometry?.coordinates || []
-          let len = 0
-          for (let i=1;i<c.length;i++){
-            const [x1,y1] = c[i-1], [x2,y2] = c[i]
-            len += haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-          }
-          const r = f.properties?.risk; if (kmByRisk[r] != null) kmByRisk[r] += (len/1000)
-        }
-        const totalKm = kmByRisk.low + kmByRisk.med + kmByRisk.high || 1
-        setRiskMix({
-          ...kmByRisk, totalKm,
-          pctLow:Math.round((kmByRisk.low/totalKm)*100),
-          pctMed:Math.round((kmByRisk.med/totalKm)*100),
-          pctHigh:Math.round((kmByRisk.high/totalKm)*100),
-        })
-
-        const bands = []
-        const distKm = distKmRef.current
-        for (const f of riskFC.features){
-          const s = f.properties?.sIndex ?? 0
-          const e = f.properties?.eIndex ?? s
-          const fromKm = distKm[Math.max(0, Math.min(distKm.length-1, s))] ?? 0
-          const toKm   = distKm[Math.max(0, Math.min(distKm.length-1, e))] ?? fromKm
-          const risk   = f.properties?.risk || 'low'
-          const way    = f.properties?.way
-          const reasons = String(f.properties?.why || '')
-            .split(' • ').map(s => s.trim()).filter(Boolean)
-          bands.push({ fromKm, toKm, risk, wayLabel: wayLabel(way), reasons })
-        }
-        setRiskBands(bands)
-      }
-
-      fitRoute(feature, { tightness:1.6 })
-      ensureRouteCursor()
-      if (routeCoordsRef.current.length){
-        const [lng, lat] = routeCoordsRef.current[0]; updateRouteCursor(lng, lat)
-      }
-      setDirections(flatSteps(feature))
+      lastRouteRef.current = features[0]
+      routeCoordsRef.current = features[0].geometry?.coordinates || []
 
       const url = new URL('https://www.google.com/maps/dir/')
       url.searchParams.set('api','1')
@@ -517,12 +867,7 @@ export default function BikeSafeMap(){
 
       setAcResetKey(k => k + 1)
     }catch(e){
-      try{
-        const o = originCoord || (originText ? await geocode(originText) : null)
-        const d = destCoord   || (destText   ? await geocode(destText)   : null)
-        if (o && d) await fetchORS(o, d) // probe
-        setErr(`${e?.message || 'Routing failed'} — Tip: try a nearby street/trail node.`)
-      }catch{ setErr(e?.message || 'Routing failed') }
+      setErr(e?.message || 'Routing failed')
     }finally{ setRouting(false) }
   }
 
@@ -607,145 +952,13 @@ export default function BikeSafeMap(){
     }
   }
 
-  // ORS request
-  const fetchORS = async (o, d) => {
-    let url = `${ORS_BASE}/v2/directions/cycling-regular/geojson`
-    const headers = { 'content-type':'application/json', 'accept':'application/geo+json, application/json;q=0.9, */*;q=0.8' }
-    if (ORS_KEY) headers['Authorization'] = ORS_KEY
-    else if (!import.meta.env.DEV && import.meta.env.VITE_ORS_KEY) url += `?api_key=${encodeURIComponent(import.meta.env.VITE_ORS_KEY)}`
-
-    let res, text
-    try {
-      res = await http(url, {
-        method:'POST', headers,
-        body: JSON.stringify({
-          coordinates: [[o.lng,o.lat],[d.lng,d.lat]],
-          preference:'recommended', elevation:true, instructions:true, instructions_format:'text',
-          extra_info:['suitability','waytype','surface','steepness'],
-          options:{ profile_params:{ weightings:{ steepness_difficulty:1 } } }
-        })
-      })
-      text = await res.text()
-    } catch (e) { throw new Error(`ORS request failed (${e?.name === 'AbortError' ? 'timeout' : 'network'}).`) }
-
-    const ct = (res.headers.get('content-type') || '').toLowerCase()
-    if (!ct.includes('json')) throw new Error(`ORS unavailable. ${String(text).replace(/\s+/g,' ').slice(0,180)}`)
-
-    let json; try { json = JSON.parse(text) } catch { throw new Error(`ORS returned invalid JSON.`) }
-    if (!res.ok) {
-      const msg = json?.error?.message || json?.message || res.statusText
-      if (res.status === 401) throw new Error('ORS 401 Unauthorized — check VITE_ORS_KEY')
-      if (res.status === 403) throw new Error('ORS 403 Forbidden — key blocked or referrer not allowed')
-      if (res.status === 429) throw new Error('ORS 429 Rate limit — try again later')
-      throw new Error(`ORS ${res.status}: ${msg}`)
-    }
-    const feature = json?.features?.[0]; if (!feature) throw new Error('No route found')
-    return feature
-  }
-
-  // risk + insights
-  const haversineMeters = (a,b) => {
-    const R=6371000, toRad = x=>x*Math.PI/180
-    const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lng-a.lng)
-    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2
-    return 2*R*Math.asin(Math.sqrt(s))
-  }
-  const avgGrade = (seg) => {
-    let dSum=0, dzSum=0
-    for (let i=1;i<seg.length;i++){
-      const [x1,y1,z1=0] = seg[i-1], [x2,y2,z2=0] = seg[i]
-      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-      if (d>0){ dSum+=d; dzSum+=Math.abs(z2-z1) }
-    }
-    return dSum ? (dzSum/dSum)*100 : 0
-  }
-  const valueAt = (i, ranges, fallback=null) => { for (const [a,b,v] of ranges || []) if (i>=a && i<=b) return v; return fallback }
-  const gradeRisk = ({ suit, surf, avgPct }) => {
-    const reasons = []
-    const s = suit > 1 ? suit : suit * 10
-    if (s <= 4) reasons.push(`Lower suitability score (${s.toFixed(1)}/10)`)
-    else if (s <= 7) reasons.push(`Moderate suitability (${s.toFixed(1)}/10)`)
-    if (avgPct >= STEEP_HIGH_PCT) reasons.push(`Steep grade (~${avgPct.toFixed(1)}%)`)
-    else if (avgPct >= STEEP_MED_PCT) reasons.push(`Noticeable grade (~${avgPct.toFixed(1)}%)`)
-    const rough = ROUGH_SURFACES.has(surf); if (rough) reasons.push('Unpaved / rough surface')
-    const risk = (s <= 4) ? 'high' : ((s <= 7 || avgPct >= STEEP_HIGH_PCT || rough) ? 'med' : 'low')
-    return { risk, reasons }
-  }
-  const toRiskFC = (feature) => {
-    const coords = feature?.geometry?.coordinates || []
-    const extras = feature?.properties?.extras || {}
-    if (coords.length < 2) return null
-    const suitVals = extras.suitability?.values || []
-    const wayVals  = extras.waytype?.values || []
-    const surfVals = extras.surface?.values || []
-    const cuts = new Set([0, coords.length-1])
-    ;[suitVals, wayVals, surfVals].forEach(arr => { for (const [a,b] of arr || []) { cuts.add(a); cuts.add(b) } })
-    const idx = Array.from(cuts).sort((a,b)=>a-b)
-
-    const fc = { type:'FeatureCollection', features:[] }
-    let rid=0
-    for (let i=0;i<idx.length-1;i++){
-      const s = idx[i], e = Math.max(s+1, idx[i+1])
-      const m = Math.floor((s+e)/2)
-      const suit = valueAt(m, suitVals, 7)
-      const way  = valueAt(m, wayVals, null)
-      const surf = valueAt(m, surfVals, null)
-      const seg = coords.slice(s, e+1)
-      const avgPct = avgGrade(seg)
-      const { risk, reasons } = gradeRisk({ suit, surf, avgPct })
-      fc.features.push({
-        type:'Feature',
-        properties:{ rid, risk, suit, way, sIndex:s, eIndex:e, gradePct:+avgPct.toFixed(1), why:reasons.join(' • ') },
-        geometry:{ type:'LineString', coordinates: seg }
-      })
-      rid++
-    }
-    return fc
-  }
-  const getInsights = (feature) => {
-    const coords = feature.geometry?.coordinates || []
-    if (coords.length < 2) return null
-    let total=0, ascent=0, descent=0
-    const distKm=[0], elevM=[coords[0][2]??0], samples=[]
-    for (let i=1;i<coords.length;i++){
-      const [x1,y1,z1=0]=coords[i-1], [x2,y2,z2=0]=coords[i]
-      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-      total += d; const dz = z2 - z1; if (dz>0) ascent+=dz; else descent+=-dz
-      distKm.push(total/1000); elevM.push(z2)
-      if (d>0){ const grade = dz/d; let v = 18 - 80*grade; v = Math.max(10, Math.min(v,28)); samples.push({ v, w:d }) }
-    }
-    const sumW = samples.reduce((s,x)=>s+x.w,0) || 1
-    const avgV = samples.reduce((s,x)=>s + x.v*(x.w/sumW), 0)
-    const etaMin = (total/1000) / Math.max(5, avgV) * 60
-    return { distKm, elevM, totalDistM:total, ascentM:ascent, descentM:descent, avgSpeedKph:avgV, etaMin }
-  }
-
-  // parks overlay (simple)
-  const anyVectorSource = (m) => {
-    const srcs = m.getStyle()?.sources || {}
-    return Object.keys(srcs).find(k => srcs[k].type === 'vector')
-  }
-  const ensureParksOverlay = (m) => {
-    const style = m.getStyle() || {}
-    const layers = style.layers || []
-    const land = layers.find(L => L.type==='fill' && L['source-layer']==='landuse')
-    const src = land?.source || anyVectorSource(m); if (!src) return
-    const layer = land?.['source-layer'] || 'landuse'
-    const parkFilter = ['any',['match',['get','class'],['park','recreation_ground','garden','nature_reserve','protected_area'],true,false],['==',['get','subclass'],'park']]
-    if (!m.hasImage('park-icon')) m.addImage('park-icon', makeParkIcon(), { pixelRatio:2 })
-    if (!m.getLayer('parks-fill')) m.addLayer({ id:'parks-fill', type:'fill', source:src, 'source-layer':layer, filter:parkFilter, paint:{ 'fill-color':'#22c55e','fill-opacity':0.45 } })
-    if (!m.getLayer('parks-outline')) m.addLayer({ id:'parks-outline', type:'line', source:src, 'source-layer':layer, filter:parkFilter, paint:{ 'line-color':'#16a34a','line-width':2,'line-dasharray':[2,2],'line-opacity':0.9 } })
-    if (!m.getLayer('parks-icon')) m.addLayer({
-      id:'parks-icon', type:'symbol', source:src, 'source-layer':layer, filter:parkFilter, minzoom:10,
-      layout:{ 'icon-image':'park-icon','icon-size':['interpolate',['linear'],['zoom'],10,0.9,12,1.0,15,1.2],'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-placement':'point','icon-offset':[0,-2] }
-    })
-  }
-  const makeParkIcon = () => {
-    const px=64, c=document.createElement('canvas'); c.width=c.height=px
-    const ctx=c.getContext('2d'); ctx.fillStyle='#16a34a'
-    ctx.beginPath(); ctx.arc(px/2,px/2,22,0,Math.PI*2); ctx.fill()
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(px/2,px/2-14); ctx.lineTo(px/2-13,px/2+4); ctx.lineTo(px/2+13,px/2+4); ctx.closePath(); ctx.fill()
-    ctx.fillRect(px/2-3,px/2+4,6,12); return c
+  const selectRoute = (idx, feature) => {
+    setActiveRouteIdx(idx)
+    lastRouteRef.current = feature
+    routeCoordsRef.current = feature.geometry?.coordinates || []
+    const ins = getInsights(feature)
+    setInsights(ins)
+    fitRoute(feature, { tightness: 1.6 })
   }
 
   // ui
@@ -809,6 +1022,41 @@ export default function BikeSafeMap(){
         <button className="primary" type="button" onClick={route} disabled={routing} aria-busy={routing} aria-live="polite">
           {routing ? 'Routing…' : 'Find Bike-Safe Route'}
         </button>
+        
+        {!!routes.length && (
+          <div style={{marginTop:12}}>
+            <h3 style={{margin:'8px 0', color:'#cfe1ff', fontSize:14}}>Designated Routes</h3>
+            <div style={{display:'flex', flexDirection:'column', gap:8}}>
+              {routes.map((r, i) => {
+                const label = r.properties?._label || r.properties?._preference || `Route ${i+1}`
+                const stats = getInsights(r)
+                const isActive = i === activeRouteIdx
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { setActiveRouteIdx(i); selectRoute(i, r) }}
+                    style={{
+                      textAlign:'left',
+                      padding:'8px 10px',
+                      borderRadius:6,
+                      cursor:'pointer',
+                      border:`1px solid ${isActive ? '#60a5fa' : '#2a3b5f'}`,
+                      background:isActive ? '#1e293b' : '#0e172a',
+                      color:'#cfe1ff'
+                    }}
+                  >
+                    <div style={{fontWeight:600}}>{label}</div>
+                    {stats && (
+                      <div style={{fontSize:12, opacity:0.8}}>
+                        { (stats.totalDistM/1000).toFixed(1) } km • ↑{Math.round(stats.ascentM)}m • ETA {Math.round(stats.etaMin)} min
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
           <button type="button" className="secondary" onClick={defaultRouteView} title="Frame current route, centered">Default route view</button>
@@ -875,4 +1123,32 @@ export default function BikeSafeMap(){
       <div ref={mapRef} className="map" style={{minHeight:'60vh'}} />
     </div>
   )
+}
+
+// --- parks overlay (simple)
+const anyVectorSource = (m) => {
+  const srcs = m.getStyle()?.sources || {}
+  return Object.keys(srcs).find(k => srcs[k].type === 'vector')
+}
+const ensureParksOverlay = (m) => {
+  const style = m.getStyle() || {}
+  const layers = style.layers || []
+  const land = layers.find(L => L.type==='fill' && L['source-layer']==='landuse')
+  const src = land?.source || anyVectorSource(m); if (!src) return
+  const layer = land?.['source-layer'] || 'landuse'
+  const parkFilter = ['any',['match',['get','class'],['park','recreation_ground','garden','nature_reserve','protected_area'],true,false],['==',['get','subclass'],'park']]
+  if (!m.hasImage('park-icon')) m.addImage('park-icon', makeParkIcon(), { pixelRatio:2 })
+  if (!m.getLayer('parks-fill')) m.addLayer({ id:'parks-fill', type:'fill', source:src, 'source-layer':layer, filter:parkFilter, paint:{ 'fill-color':'#22c55e','fill-opacity':0.45 } })
+  if (!m.getLayer('parks-outline')) m.addLayer({ id:'parks-outline', type:'line', source:src, 'source-layer':layer, filter:parkFilter, paint:{ 'line-color':'#16a34a','line-width':2,'line-dasharray':[2,2],'line-opacity':0.9 } })
+  if (!m.getLayer('parks-icon')) m.addLayer({
+    id:'parks-icon', type:'symbol', source:src, 'source-layer':layer, filter:parkFilter, minzoom:10,
+    layout:{ 'icon-image':'park-icon','icon-size':['interpolate',['linear'],['zoom'],10,0.9,12,1.0,15,1.2],'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-placement':'point','icon-offset':[0,-2] }
+  })
+}
+const makeParkIcon = () => {
+  const px=64, c=document.createElement('canvas'); c.width=c.height=px
+  const ctx=c.getContext('2d'); ctx.fillStyle='#16a34a'
+  ctx.beginPath(); ctx.arc(px/2,px/2,22,0,Math.PI*2); ctx.fill()
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(px/2,px/2-14); ctx.lineTo(px/2-13,px/2+4); ctx.lineTo(px/2+13,px/2+4); ctx.closePath(); ctx.fill()
+  ctx.fillRect(px/2-3,px/2+4,6,12); return c
 }
