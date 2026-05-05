@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | Trending</title>
+    <meta
+      name="description"
+      content="Project detail for Trending, a YouTube trending page with a custom scoring algorithm and Chrome extension."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">YouTube's native trending page mixes Shorts, stale videos, and sponsored content into a single feed with no way to filter by category or understand why something is trending — the signal is buried in noise.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Built a custom scoring algorithm using view velocity, engagement rate, and recency — capped at 168 hours</li>
+              <li>Added Shorts detection by duration and hashtag to exclude them from results</li>
+              <li>Exposed a category-filtered API via Express, backed by a 15-minute response cache</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">A score is only as useful as its inputs are clean. Getting Shorts detection right — accounting for YouTube's extended 3-minute limit and hashtag requirement — made the difference between a feed that felt curated and one that still felt polluted.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">06 / Web App</p>
+          <h1>Trending</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A YouTube trending feed rebuilt around a custom scoring algorithm —
+            filtering by category, velocity, and engagement with a paired Chrome extension.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">06</span>
+              <span class="project-brief-type">Web App</span>
+              <span class="project-brief-year">2024</span>
+            </div>
+            <p class="project-brief-lead">A YouTube trending feed rebuilt around a custom scoring algorithm — filtering by category, velocity, and engagement with a paired Chrome extension.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">An Express server queries the YouTube Data API v3, scores each video by a velocity-and-engagement formula, strips out Shorts, and serves a filtered feed by category. A Chrome extension popup connects to the server so trending results are accessible directly from the browser toolbar without leaving the current tab.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A cleaner, more honest trending feed — category-aware, Shorts-free, and sorted by actual momentum.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">Node.js</span>
+          <span class="project-tag">YouTube API</span>
+          <span class="project-tag">Chrome Extension</span>
+          <span class="project-tag">Scoring Algorithm</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | SponsorSkip</title>
+    <meta
+      name="description"
+      content="Project detail for SponsorSkip, a Chrome extension using ML to automatically detect and skip YouTube sponsor segments."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">V1 depended entirely on a third-party crowd-sourced database. V2 needed to detect sponsor segments independently — without external data — using pattern recognition on video transcripts.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Built a transcript extraction pipeline and labelled training data for sponsor detection</li>
+              <li>Trained and iterated on a classification model, testing against regression cases</li>
+              <li>Bundled via webpack into a production-ready Manifest V3 Chrome extension</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">Training data quality mattered more than model complexity. Short transcript windows are noisy — cleaning and consistently labelling the data had a larger impact on detection accuracy than any architectural change to the model.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">05 / Extension</p>
+          <h1>SponsorSkip</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A Chrome extension that uses a trained ML model to detect and skip
+            YouTube sponsor segments — no crowd-sourced database required.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">05</span>
+              <span class="project-brief-type">Extension</span>
+              <span class="project-brief-year">2025</span>
+            </div>
+            <p class="project-brief-lead">A Chrome extension that uses a trained ML model to detect and skip YouTube sponsor segments — no crowd-sourced database required.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">The extension extracts captions from YouTube, runs them through a trained classifier to identify sponsor windows, and automatically skips those segments during playback. Built on Manifest V3 with a service worker background script, webpack bundling, and a popup UI for settings and status.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A self-contained sponsor detection system that works without any external API dependency.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">Chrome Extension</span>
+          <span class="project-tag">Machine Learning</span>
+          <span class="project-tag">JavaScript</span>
+          <span class="project-tag">Webpack</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

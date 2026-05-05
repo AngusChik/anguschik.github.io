@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | Home</title>
+    <meta
+      name="description"
+      content="Minimal portfolio website for A.C. featuring thoughtful design, selected work, and personal background."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="home">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link active" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page page-home">
+        <section class="hero-shell">
+          <div class="hero-copy reveal">
+            <p class="eyebrow">Minimal portfolio</p>
+            <h1>Quiet systems, thoughtful work.</h1>
+            <div class="hero-rule"></div>
+            <p class="hero-text">
+              A minimal design practice focused on structure, typography, and
+              digital experiences that feel calm and precise.
+            </p>
+          </div>
+
+          <div class="hero-orb reveal reveal-delay" aria-hidden="true">
+            <span></span>
+          </div>
+        </section>
+
+        <section class="preview-grid">
+          <a class="preview-card reveal" href="./about.html">
+            <div class="preview-head">
+              <h2>About</h2>
+              <span class="arrow" aria-hidden="true">&rarr;</span>
+            </div>
+            <p>Background and approach.</p>
+          </a>
+
+          <a class="preview-card reveal reveal-delay" href="./work.html">
+            <div class="preview-head">
+              <h2>Work</h2>
+              <span class="arrow" aria-hidden="true">&rarr;</span>
+            </div>
+            <p>Selected projects.</p>
+          </a>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

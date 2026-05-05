@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | Pharmacy</title>
+    <meta
+      name="description"
+      content="Project detail for Pharmacy, a Django inventory and point-of-sale system for a retail pharmacy."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">A retail pharmacy needed a way to track stock, process orders, and manage customer records without relying on spreadsheets or paper — the challenge was building something reliable enough to trust with real inventory.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Modelled products with barcodes, brand, pricing, stock levels, and category</li>
+              <li>Built order and order-detail relational structure for accurate transaction history</li>
+              <li>Used Django admin as the primary interface to keep the build lean and focused</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">Data integrity at the model layer matters more than UI polish in operational tools. Getting the relational structure right early — especially order details and stock quantities — avoided significant rework later.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">02 / Full-Stack</p>
+          <h1>Pharmacy</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A Django-based inventory and point-of-sale system for a retail
+            pharmacy — products, orders, customers, and stock in one place.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">02</span>
+              <span class="project-brief-type">Full-Stack</span>
+              <span class="project-brief-year">2025</span>
+            </div>
+            <p class="project-brief-lead">A Django-based inventory and point-of-sale system for a retail pharmacy — products, orders, customers, and stock in one place.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">The system tracks products by barcode, brand, unit size, and category — with stock quantities updated through order processing. Orders link to line-item detail records and customers, giving a full transaction history without needing a third-party platform.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A working backend system for real pharmacy inventory and order tracking.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">Django</span>
+          <span class="project-tag">Python</span>
+          <span class="project-tag">Inventory</span>
+          <span class="project-tag">Database Design</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

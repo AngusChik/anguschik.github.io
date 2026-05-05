@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | BikeSafe</title>
+    <meta
+      name="description"
+      content="Project detail for BikeSafe, a React cycling route planner scored by risk and scenic quality."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">Cyclists in the Toronto area had no tool that balanced both safety risk and route quality — existing mapping apps optimise for speed or distance, not for the experience or danger level of the ride.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Integrated OpenRouteService for multi-route generation and MapLibre GL for rendering</li>
+              <li>Built custom risk and scenic scoring functions applied per-route segment</li>
+              <li>Added QR code sharing and geo autocomplete for a complete user flow</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">Geographic data is messy. Normalising route data across sources before applying scoring was the hardest part — the scoring logic itself was straightforward once the inputs were clean and consistent.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">03 / Web App</p>
+          <h1>BikeSafe</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A React cycling route planner that scores paths by risk and scenic
+            quality — built for riders who care about more than just distance.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">03</span>
+              <span class="project-brief-type">Web App</span>
+              <span class="project-brief-year">2025</span>
+            </div>
+            <p class="project-brief-lead">A React cycling route planner that scores paths by risk and scenic quality — built for riders who care about more than just distance.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">The app fetches multiple route options via OpenRouteService, renders them on a MapLibre GL map, and scores each one using custom haversine-based risk and scenic algorithms. Riders can compare routes by insight summary, share a result via QR code, and search locations with geo autocomplete.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A functional route planner that surfaces safety and scenic tradeoffs cyclists actually care about.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">React</span>
+          <span class="project-tag">MapLibre GL</span>
+          <span class="project-tag">Routing API</span>
+          <span class="project-tag">Geo Data</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

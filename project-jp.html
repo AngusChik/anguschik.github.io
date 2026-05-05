@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | JP Barber</title>
+    <meta
+      name="description"
+      content="Project detail for JP Barber, a Django appointment booking system for a barbershop."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">Phone-based bookings make it hard to track barber availability, prevent double-booking, and give clients a clear view of what services are on offer and when they can be seen.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Modelled Barbers, Services, and Appointments with slug-based routing per barber</li>
+              <li>Built booking conflict detection to prevent overlapping appointments</li>
+              <li>Linked Booksy URL support for barbers already using external booking tools</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">Availability logic is where booking systems get complicated fast. Handling time zones, service durations, and slot conflicts correctly required careful model-level logic before the UI could be trusted to reflect real availability.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">04 / Full-Stack</p>
+          <h1>JP Barber</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A Django appointment booking system for a barbershop — managing
+            barbers, services, and scheduling in one clean backend.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">04</span>
+              <span class="project-brief-type">Full-Stack</span>
+              <span class="project-brief-year">2025</span>
+            </div>
+            <p class="project-brief-lead">A Django appointment booking system for a barbershop — managing barbers, services, and scheduling in one clean backend.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">The system supports multiple barbers with individual slugs, service listings with duration and pricing, and appointment booking with conflict validation. Each barber can optionally link to an external Booksy profile for clients who prefer that flow.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A reliable booking backend that replaces phone scheduling with structured appointment management.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">Django</span>
+          <span class="project-tag">Python</span>
+          <span class="project-tag">Bookings</span>
+          <span class="project-tag">Web App</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
