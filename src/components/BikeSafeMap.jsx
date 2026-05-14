@@ -4,6 +4,12 @@ import QRCode from 'qrcode'
 import ShareButtons from './ShareButtons.jsx'
 import GeoAutocomplete from './GeoAutocomplete.jsx'
 import RouteInsights from './RouteInsights.jsx'
+import {
+  haversineMeters, toRiskFCRaw,
+  riskScore as riskScoreRaw, scenicScore as scenicScoreRaw,
+  getInsights, distanceOf, isSameRoute,
+  byDistinctness, cloneAndLabel, wayLabel,
+} from '../utils/scoring.js'
 
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY
 const ORS_KEY      = import.meta.env.VITE_ORS_KEY
@@ -11,25 +17,6 @@ const ORS_BASE     = import.meta.env.DEV ? '/ors' : 'https://api.openrouteservic
 
 const DEFAULT_CENTER = [-79.6440, 43.5890]
 const DEFAULT_ZOOM   = 12
-
-const ROUGH_SURFACES = new Set([2,8,10,11,12,15,17,18])
-const STEEP_MED_PCT  = 5
-const STEEP_HIGH_PCT = 8
-
-const WAYTYPE_LABELS = {
-  0:'Other / unknown', 
-  1:'High-speed highway', 
-  2:'Primary road', 
-  3:'Secondary / local road',
-  4:'Multi-use path', 
-  5:'Unpaved / rough track', 
-  6:'Dedicated bike lane/track',
-  7:'Footway / sidewalk', 
-  8:'Stairs', 
-  9:'Ferry', 
-  10:'Construction area'
-}
-const wayLabel = (c) => WAYTYPE_LABELS[Number(c)] ?? 'Other / unknown'
 
 const http = async (url, opts = {}, timeout = 20000) => {
   const ctl = new AbortController()
@@ -69,6 +56,7 @@ export default function BikeSafeMap(){
 
   const originMarkerRef = useRef(null)
   const destMarkerRef = useRef(null)
+  const routeDebounceRef = useRef(null)
 
   const [map, setMap] = useState(null)
   const [originText, setOriginText] = useState('')
@@ -85,6 +73,8 @@ export default function BikeSafeMap(){
 
   const [routing, setRouting] = useState(false)
   const [err, setErr] = useState(null)
+  const [poolWarning, setPoolWarning] = useState(null)
+  const [mapReady, setMapReady] = useState(false)
 
   const [showCyclePaths, setShowCyclePaths] = useState(false)
   const CYCLE_LAYER_ID = 'cycle-paths-overlay'
@@ -95,8 +85,10 @@ export default function BikeSafeMap(){
   const [acResetKey, setAcResetKey] = useState(0)
 
   const [routes, setRoutes] = useState([])   // exactly 3 designated routes
+  const [routeInsightsCache, setRouteInsightsCache] = useState([]) // cached getInsights per route
   const [activeRouteIdx, setActiveRouteIdx] = useState(0)
   const activeRoute = routes[activeRouteIdx] || null
+  const riskFCCache = useRef(new WeakMap())  // cache toRiskFC results per feature
 
   // --- risk overlay housekeeping
   const safeRemoveLayer  = (m, id) => { try { if (m.getLayer(id))  m.removeLayer(id) } catch {} }
@@ -127,6 +119,7 @@ export default function BikeSafeMap(){
         m.addControl(new maplibregl.NavigationControl({ showCompass:false }))
         m.once('load', () => {
           setMap(m)
+          setMapReady(true)
           popupRef.current = new maplibregl.Popup({ closeButton:false, closeOnClick:false, offset:8, maxWidth:'280px' })
           ensureParksOverlay(m)
         })
@@ -323,6 +316,15 @@ export default function BikeSafeMap(){
     }
   }, [map, routes, activeRouteIdx])
 
+// re-add parks overlay if style reloads (like we do for cycle paths)
+useEffect(() => {
+  if (!map) return
+  const tryParks = () => ensureParksOverlay(map)
+  map.on('styledata', tryParks)
+  return () => map.off('styledata', tryParks)
+}, [map])
+
+
   // hover popup for risk segments
   useEffect(() => {
     if(!map) return
@@ -496,12 +498,18 @@ export default function BikeSafeMap(){
         setOriginCoord(p)
         setOriginText(`${lat.toFixed(5)},${lng.toFixed(5)}`)
         const d = destMarkerRef.current?.getLngLat?.()
-        if (d) route({ origin: p, dest: { lng: d.lng, lat: d.lat } })
+        if (d) {
+          clearTimeout(routeDebounceRef.current)
+          routeDebounceRef.current = setTimeout(() => route({ origin: p, dest: { lng: d.lng, lat: d.lat } }), 400)
+        }
       } else {
         setDestCoord(p)
         setDestText(`${lat.toFixed(5)},${lng.toFixed(5)}`)
         const o = originMarkerRef.current?.getLngLat?.()
-        if (o) route({ origin: { lng: o.lng, lat: o.lat }, dest: p })
+        if (o) {
+          clearTimeout(routeDebounceRef.current)
+          routeDebounceRef.current = setTimeout(() => route({ origin: { lng: o.lng, lat: o.lat }, dest: p }), 400)
+        }
       }
     })
     if (id === 'origin') originMarkerRef.current = marker
@@ -561,282 +569,240 @@ export default function BikeSafeMap(){
     const [lng, lat] = feat.center; return { lng, lat }
   }
 
-  // --- risk + insights (kept as before)
-  const haversineMeters = (a,b) => {
-    const R=6371000, toRad = x=>x*Math.PI/180
-    const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lng-a.lng)
-    const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2
-    return 2*R*Math.asin(Math.sqrt(s))
-  }
-  const avgGrade = (seg) => {
-    let dSum=0, dzSum=0
-    for (let i=1;i<seg.length;i++){
-      const [x1,y1,z1=0] = seg[i-1], [x2,y2,z2=0] = seg[i]
-      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-      if (d>0){ dSum+=d; dzSum+=Math.abs(z2-z1) }
-    }
-    return dSum ? (dzSum/dSum)*100 : 0
-  }
-  const valueAt = (i, ranges, fallback=null) => { for (const [a,b,v] of ranges || []) if (i>=a && i<=b) return v; return fallback }
-  const gradeRisk = ({ suit, surf, avgPct }) => {
-    const reasons = []
-    const s = suit > 1 ? suit : suit * 10
-    if (s <= 4) reasons.push(`Lower suitability score (${s.toFixed(1)}/10)`)
-    else if (s <= 7) reasons.push(`Moderate suitability (${s.toFixed(1)}/10)`)
-    if (avgPct >= STEEP_HIGH_PCT) reasons.push(`Steep grade (~${avgPct.toFixed(1)}%)`)
-    else if (avgPct >= STEEP_MED_PCT) reasons.push(`Noticeable grade (~${avgPct.toFixed(1)}%)`)
-    const rough = ROUGH_SURFACES.has(surf); if (rough) reasons.push('Unpaved / rough surface')
-    const risk = (s <= 4) ? 'high' : ((s <= 7 || avgPct >= STEEP_HIGH_PCT || rough) ? 'med' : 'low')
-    return { risk, reasons }
-  }
+  // --- risk + insights (pure helpers imported from scoring.js) ---
   const toRiskFC = (feature) => {
-    const coords = feature?.geometry?.coordinates || []
-    const extras = feature?.properties?.extras || {}
-    if (coords.length < 2) return null
-    const suitVals = extras.suitability?.values || []
-    const wayVals  = extras.waytype?.values || []
-    const surfVals = extras.surface?.values || []
-    const cuts = new Set([0, coords.length-1])
-    ;[suitVals, wayVals, surfVals].forEach(arr => { for (const [a,b] of arr || []) { cuts.add(a); cuts.add(b) } })
-    const idx = Array.from(cuts).sort((a,b)=>a-b)
+    if (!feature) return null
+    const cached = riskFCCache.current.get(feature)
+    if (cached) return cached
+    const result = toRiskFCRaw(feature)
+    if (result) riskFCCache.current.set(feature, result)
+    return result
+  }
+  // riskScore / scenicScore wrappers that use the cached toRiskFC
+  const riskScore = (feature) => riskScoreRaw(feature, toRiskFC)
+  const scenicScore = (feature) => scenicScoreRaw(feature, toRiskFC, (coords) => envBonusNear(map, coords, 28))
 
-    const fc = { type:'FeatureCollection', features:[] }
-    let rid=0
-    for (let i=0;i<idx.length-1;i++){
-      const s = idx[i], e = Math.max(s+1, idx[i+1])
-      const m = Math.floor((s+e)/2)
-      const suit = valueAt(m, suitVals, 7)
-      const way  = valueAt(m, wayVals, null)
-      const surf = valueAt(m, surfVals, null)
-      const seg = coords.slice(s, e+1)
-      const avgPct = avgGrade(seg)
-      const { risk, reasons } = gradeRisk({ suit, surf, avgPct })
-      fc.features.push({
-        type:'Feature',
-        properties:{ rid, risk, suit, way, sIndex:s, eIndex:e, gradePct:+avgPct.toFixed(1), why:reasons.join(' • ') },
-        geometry:{ type:'LineString', coordinates: seg }
-      })
-      rid++
+
+// --- Robust ORS request with profile + fallbacks for common 400s
+const orsPost = async (body, profile = 'cycling-regular') => {
+  const apiKey = ORS_KEY || import.meta.env.VITE_ORS_KEY
+  if (!apiKey) throw new Error('Missing OpenRouteService key (VITE_ORS_KEY)')
+  const baseURL = `${ORS_BASE}/v2/directions/${profile}/geojson`
+  const headers = {
+    'Authorization': apiKey,
+    'content-type':'application/json',
+    'accept':'application/geo+json, application/json;q=0.9, */*;q=0.8'
+  }
+
+  const doFetch = async (b) => {
+    const res = await http(baseURL, { method:'POST', headers, body: JSON.stringify(b) }, 20000)
+    const text = await res.text()
+    const ct = (res.headers.get('content-type') || '').toLowerCase()
+    const json = ct.includes('json') ? JSON.parse(text) : null
+    return { res, text, json }
+  }
+
+  let cur = body
+  for (let attempt = 0; attempt < 3; attempt++){
+    const { res, text, json } = await doFetch(cur)
+    if (res.ok) return json
+    const msg = (json?.error?.message || json?.message || text || '').toString()
+
+    // fallbacks:
+    if (res.status === 400 && /extra_info|suitability/i.test(msg) && Array.isArray(cur.extra_info) && cur.extra_info.includes('suitability')) {
+      cur = { ...cur, extra_info: cur.extra_info.filter(x => x !== 'suitability') }
+      continue
     }
-    return fc
-  }
-  const getInsights = (feature) => {
-    const coords = feature.geometry?.coordinates || []
-    if (coords.length < 2) return null
-    let total=0, ascent=0, descent=0
-    const distKm=[0], elevM=[coords[0][2]??0], samples=[]
-    for (let i=1;i<coords.length;i++){
-      const [x1,y1,z1=0]=coords[i-1], [x2,y2,z2=0]=coords[i]
-      const d = haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-      total += d; const dz = z2 - z1; if (dz>0) ascent+=dz; else descent+=-dz
-      distKm.push(total/1000); elevM.push(z2)
-      if (d>0){ const grade = dz/d; let v = 18 - 80*grade; v = Math.max(10, Math.min(v,28)); samples.push({ v, w:d }) }
+    if (res.status === 400 && /profile_params|weightings|options/i.test(msg) && cur?.options?.profile_params) {
+      const options = { ...(cur.options || {}) }; delete options.profile_params
+      cur = { ...cur, options }
+      continue
     }
-    const sumW = samples.reduce((s,x)=>s+x.w,0) || 1
-    const avgV = samples.reduce((s,x)=>s + x.v*(x.w/sumW), 0)
-    const etaMin = (total/1000) / Math.max(5, avgV) * 60
-    return { distKm, elevM, totalDistM:total, ascentM:ascent, descentM:descent, avgSpeedKph:avgV, etaMin }
-  }
-
-  // --- route picking helpers (distance/risk + 3 designated routes) ---
-  const distanceOf = (feature) =>
-    (feature?.properties?.summary?.distance) ??
-    (getInsights(feature)?.totalDistM ?? 0)
-
-  const riskScore = (feature) => {
-    const fc = toRiskFC(feature)
-    if (!fc?.features?.length) return 1e9
-    let lenM = 0, score = 0
-    for (const f of fc.features) {
-      const c = f.geometry?.coordinates || []
-      let seg = 0
-      for (let i=1;i<c.length;i++){
-        const [x1,y1] = c[i-1], [x2,y2] = c[i]
-        seg += haversineMeters({lng:x1,lat:y1},{lng:x2,lat:y2})
-      }
-      lenM += seg
-      const w = f.properties?.risk === 'high' ? 3 : (f.properties?.risk === 'med' ? 2 : 1)
-      score += w * seg
+    if (res.status === 400 && /alternative_routes/i.test(msg) && cur?.options?.alternative_routes) {
+      const options = { ...(cur.options || {}) }; delete options.alternative_routes
+      cur = { ...cur, options }
+      continue
     }
-    const km = Math.max(0.001, lenM/1000)
-    return score / km // avg weighted risk per km (lower is safer)
+    throw new Error(`ORS error ${res.status}: ${msg || 'bad request'}`)
   }
-
-  // Strong geometry signature (for distinctness)
-const routeSig = (feature, samples = 12) => {
-  const c = feature?.geometry?.coordinates || []
-  if (!c.length) return 'empty'
-  const n = c.length, picks = []
-  for (let i = 0; i < samples; i++) {
-    const j = Math.floor(i * (n - 1) / (samples - 1))
-    const [x, y] = c[j] || []
-    picks.push(+x?.toFixed?.(5), +y?.toFixed?.(5))
-  }
-  const dist = Math.round(distanceOf(feature) || 0)
-  return JSON.stringify([picks, dist])
-}
-const isSameRoute = (a, b) => routeSig(a) === routeSig(b)
-
-const byDistinctness = (arr) => {
-  const seen = new Set(), out = []
-  for (const f of arr || []) {
-    const sig = routeSig(f)
-    if (!seen.has(sig)) { seen.add(sig); out.push(f) }
-  }
-  return out
-}
-
-// Clone before labeling so labels don’t bleed between identical objects
-const cloneAndLabel = (f, _label, _tag) => {
-  const c = JSON.parse(JSON.stringify(f))     // deep clone
-  c.properties = { ...(c.properties || {}), _label, _tag }
-  return c
+  throw new Error('ORS failed after retries')
 }
 
 
-  // --- Robust ORS request with fallbacks for common 400s
-  const orsPost = async (body) => {
-    const apiKey = ORS_KEY || import.meta.env.VITE_ORS_KEY
-    if (!apiKey) throw new Error('Missing OpenRouteService key (VITE_ORS_KEY)')
-    const baseURL = `${ORS_BASE}/v2/directions/cycling-regular/geojson`
-    const headers = {
-      'Authorization': apiKey,
-      'content-type':'application/json',
-      'accept':'application/geo+json, application/json;q=0.9, */*;q=0.8'
-    }
 
-    const doFetch = async (b) => {
-      const res = await http(baseURL, { method:'POST', headers, body: JSON.stringify(b) }, 20000)
-      const text = await res.text()
-      const ct = (res.headers.get('content-type') || '').toLowerCase()
-      const json = ct.includes('json') ? JSON.parse(text) : null
-      return { res, text, json }
+// Returns up to N alternatives from ORS for a profile+preference
+async function fetchORSWithAlts(o, d, {
+  profile = 'cycling-regular',
+  preference = 'recommended',
+  altCount = 3,
+  weightFactor = 1.6
+} = {}) {
+  const body = {
+    coordinates: [[o.lng,o.lat],[d.lng,d.lat]],
+    preference,
+    elevation: true,
+    instructions: true,
+    instructions_format: 'text',
+    extra_info: ['steepness','surface','waytype','suitability'],
+    options: {
+      profile_params: { weightings: { steepness_difficulty: 1 } },
+      alternative_routes: altCount > 1 ? {
+        target_count: altCount,
+        share_factor: 0.6,
+        weight_factor: weightFactor
+      } : undefined
     }
-
-    let cur = body
-    for (let attempt = 0; attempt < 3; attempt++){
-      const { res, text, json } = await doFetch(cur)
-      if (res.ok) return json
-      const msg = (json?.error?.message || json?.message || text || '').toString()
-
-      // fallback order:
-      if (res.status === 400 && /extra_info|suitability/i.test(msg) && Array.isArray(cur.extra_info) && cur.extra_info.includes('suitability')) {
-        cur = { ...cur, extra_info: cur.extra_info.filter(x => x !== 'suitability') }
-        continue
-      }
-      if (res.status === 400 && /profile_params|weightings|options/i.test(msg) && cur?.options?.profile_params) {
-        const options = { ...(cur.options || {}) }; delete options.profile_params
-        cur = { ...cur, options }
-        continue
-      }
-      if (res.status === 400 && /alternative_routes/i.test(msg) && cur?.options?.alternative_routes) {
-        const options = { ...(cur.options || {}) }; delete options.alternative_routes
-        cur = { ...cur, options }
-        continue
-      }
-      throw new Error(`ORS error ${res.status}: ${msg || 'bad request'}`)
-    }
-    throw new Error('ORS failed after retries')
   }
 
-  // Returns up to N alternatives from ORS for a preference
-  async function fetchORSWithAlts(o, d, preference='recommended', altCount=3, weightFactor=1.6) {
-    const body = {
-      coordinates: [[o.lng,o.lat],[d.lng,d.lat]],
-      preference,
-      elevation: true,
-      instructions: true,
-      instructions_format: 'text',
-      extra_info: ['steepness','surface','waytype','suitability'],
-      options: {
-        profile_params: { weightings: { steepness_difficulty: 1 } },
-        alternative_routes: altCount > 1 ? {
-          target_count: altCount,
-          share_factor: 0.6,
-          weight_factor: weightFactor
-        } : undefined
-      }
+  const json = await orsPost(body, profile)
+  const feats = (json?.features || []).map(f => {
+    f.properties = { ...(f.properties||{}), _preference: preference, _profile: profile }
+    return f
+  })
+  return feats
+}
+
+
+
+// --- Scenic / environment helpers (map-dependent, so they stay here) ------
+
+const waterLayerIds = (m) => {
+  const layers = m?.getStyle()?.layers || []
+  return layers
+    .filter(L => /water/i.test(L.id) && (L.type === 'fill' || L.type === 'line'))
+    .map(L => L.id)
+}
+
+const envBonusNear = (m, coords, pxRadius = 28) => {
+  if (!m || !m.isStyleLoaded?.() || !coords?.length) return 0
+  const mid = coords[Math.floor(coords.length/2)]
+  const pt = m.project([mid[0], mid[1]])
+  if (!pt) return 0
+
+  const bbox = [
+    { x: pt.x - pxRadius, y: pt.y - pxRadius },
+    { x: pt.x + pxRadius, y: pt.y + pxRadius }
+  ]
+
+  let bonus = 0
+
+  const layersToQuery = []
+  const parksLayerExists = !!m.getLayer('parks-fill')
+  if (parksLayerExists) layersToQuery.push('parks-fill')
+
+  const wIds = waterLayerIds(m)
+  if (wIds.length) layersToQuery.push(...wIds)
+
+  try {
+    if (layersToQuery.length) {
+      const feats = m.queryRenderedFeatures(bbox, { layers: layersToQuery })
+      if (parksLayerExists && feats.some(f => f.layer?.id === 'parks-fill')) bonus += 3.0
+      if (wIds.length && feats.some(f => wIds.includes(f.layer?.id))) bonus += 2.0
+      return bonus
     }
-    const json = await orsPost(body)
-    const feats = (json?.features || []).map(f => {
-      f.properties = { ...(f.properties||{}), _preference: preference }
-      return f
-    })
-    return feats
+
+    const landuseLayerIds = (m.getStyle()?.layers || [])
+      .filter(L => L['source-layer'] === 'landuse')
+      .map(L => L.id)
+
+    if (landuseLayerIds.length) {
+      const feats = m.queryRenderedFeatures(bbox, { layers: landuseLayerIds })
+      const isParky = (p) =>
+        ['park','recreation_ground','garden','nature_reserve','protected_area'].includes(p?.class) ||
+        p?.subclass === 'park'
+      if (feats.some(f => isParky(f.properties || {}))) bonus += 3.0
+    }
+
+    if (wIds.length) {
+      const wfeats = m.queryRenderedFeatures(bbox, { layers: wIds })
+      if (wfeats?.length) bonus += 2.0
+    }
+  } catch {
+    // swallow any maplibre query errors
   }
+
+  return bonus
+}
+
 
 
 async function fetchThreeRoutes(o, d) {
-  // 1) Shortest (take the absolute shortest from a small pool)
-  const shortestPool = await fetchORSWithAlts(o, d, 'shortest', 3, 2.0).catch(() => [])
-  if (!shortestPool.length) throw new Error('No route (shortest)')
-  const shortest = [...shortestPool].sort((a,b)=>distanceOf(a)-distanceOf(b))[0]
+  // A) Shortest on cycling-road
+  const shortestList = await fetchORSWithAlts(o, d, { profile:'cycling-road', preference:'shortest', altCount:1 })
+  if (!shortestList.length) throw new Error('No route (shortest)')
+  const shortest = shortestList[0]
   const shortestDist = distanceOf(shortest)
 
-  // 2) Build a large, diverse candidate pool
-  const pools = await Promise.all([
-    fetchORSWithAlts(o, d, 'recommended', 8, 2.4).catch(() => []),
-    fetchORSWithAlts(o, d, 'recommended', 8, 3.0).catch(() => []),
-    fetchORSWithAlts(o, d, 'fastest',     6, 2.2).catch(() => []),
+  // B) Pools (fetch in parallel — these are independent)
+  // Track failures so we can warn the user
+  let poolWarning = null
+  const results = await Promise.allSettled([
+    fetchORSWithAlts(o, d, { profile:'cycling-road',    preference:'recommended', altCount:8, weightFactor:3.0 }),
+    fetchORSWithAlts(o, d, { profile:'cycling-road',    preference:'recommended', altCount:6, weightFactor:2.2 }),
+    fetchORSWithAlts(o, d, { profile:'cycling-regular', preference:'recommended', altCount:6, weightFactor:1.8 }),
   ])
-  let candidates = byDistinctness([ ...pools.flat(), ...shortestPool ])
-  // don't compare against itself in later picks
-  candidates = candidates.filter(f => !isSameRoute(f, shortest))
+  const roadAlts1 = results[0].status === 'fulfilled' ? results[0].value : []
+  const roadAlts2 = results[1].status === 'fulfilled' ? results[1].value : []
+  const safeAlts  = results[2].status === 'fulfilled' ? results[2].value : []
+  const failCount = results.filter(r => r.status === 'rejected').length
+  if (failCount > 0) poolWarning = `${failCount} alternative route pool${failCount > 1 ? 's' : ''} unavailable — some options may be limited.`
 
-  // 3) Safest overall (distinct from shortest)
-  let safest = [...candidates].sort((a,b)=>riskScore(a)-riskScore(b))
-                .find(f => !isSameRoute(f, shortest)) || shortest
+  const roadPool = byDistinctness([...roadAlts1, ...roadAlts2])
+  const safePool = byDistinctness(safeAlts)
 
-  // 4) Long & Scenic (pick longest distinct; if not clearly longer, still take a distinct alt)
-  const minLong = shortestDist * 1.25; // ≥ +25% vs shortest feels "long"
-  let scenic = [...candidates]
-    .filter(f => !isSameRoute(f, safest))
-    .sort((a,b)=>distanceOf(b)-distanceOf(a))[0]
+  // C) Safest: from 'cycling-regular' only
+  const safest = (safePool.length ? [...safePool].sort((a,b)=>riskScore(a)-riskScore(b))[0] : shortest)
 
-  if (!scenic || isSameRoute(scenic, shortest) || isSameRoute(scenic, safest)) {
-    // fallback: next-best distinct alt, prefer longer; if tie, prefer safer
-    scenic = [...candidates]
-      .filter(f => !isSameRoute(f, shortest) && !isSameRoute(f, safest))
-      .sort((a,b)=>{
-        const dl = distanceOf(b) - distanceOf(a)
-        if (Math.abs(dl) > 1) return dl
-        return riskScore(a) - riskScore(b)
-      })[0]
+  // D) Long & Scenic: from 'cycling-road' pool, use scenicScore, prefer longer if close
+  const scenicCandidates = roadPool.filter(f => !isSameRoute(f, shortest) && !isSameRoute(f, safest))
+  let best = scenicCandidates
+    .map(f => ({ f, s: scenicScore(f), d: distanceOf(f) }))
+    .sort((A,B) => (B.s - A.s) || (B.d - A.d))[0]?.f
+
+  if (best) {
+    const bestScore = scenicScore(best)
+    const minLong = shortestDist * 1.25
+    const nearBestLong = scenicCandidates
+      .map(f => ({ f, s: scenicScore(f), d: distanceOf(f) }))
+      .filter(X => X.d >= minLong && X.s >= bestScore - 0.4)
+      .sort((A,B) => (B.s - A.s) || (B.d - A.d))[0]
+    if (nearBestLong) best = nearBestLong.f
   }
 
-  // 5) Assemble exactly three, cloning to avoid shared mutation
+  const longScenic = best || scenicCandidates.sort((a,b)=>distanceOf(b)-distanceOf(a))[0] || shortest
+
+  // E) Return 3 DISTINCT, CLONED, and LABELED
   const out = []
   const pushUnique = (f, label, tag) => {
     if (!f) return
     if (out.some(x => isSameRoute(x, f))) return
-    out.push(cloneAndLabel(f, label, tag))
+    const c = cloneAndLabel(f, label, tag)
+    if (!c.properties) c.properties = {}
+    if (label === 'Shortest' || label === 'Long & Scenic') c.properties._profile = 'cycling-road'
+    if (label === 'Safest')                               c.properties._profile = 'cycling-regular'
+    out.push(c)
   }
 
   pushUnique(shortest, 'Shortest', 'shortest')
-  pushUnique(safest,   'Safest',   'safest')
+  pushUnique(safest,  'Safest',   'safest')
+  pushUnique(longScenic, 'Long & Scenic', 'long')
 
-  if (scenic && !isSameRoute(scenic, shortest) && !isSameRoute(scenic, safest)) {
-    const lbl = distanceOf(scenic) >= minLong ? 'Long & Scenic' : 'Alternate'
-    pushUnique(scenic, lbl, 'long')
-  }
-
-  // Backfill if ORS still gave only two distinct options
-  for (const c of candidates) {
+  // backfill if we somehow got dupes
+  for (const c of [...roadPool, ...safePool]) {
     if (out.length >= 3) break
-    pushUnique(c, 'Alternate', 'alt')
+    if (!out.some(x => isSameRoute(x, c))) pushUnique(c, `Route ${out.length+1}`, 'alt')
   }
-  // Absolute last resort: clone shortest so UI always shows three
-  if (out.length < 3) pushUnique(shortest, 'Alternate', 'alt')
-
-  return out.slice(0, 3)
+  return { routes: out.slice(0, 3), poolWarning }
 }
+
+
 
 
 
   // routing (uses designated routes)
   const route = async (overrides = {}) => {
     if(!map) return
-    setErr(null); setInsights(null); setRiskMix(null); setRiskBands([]); setDirections([]); setRouting(true)
+    setErr(null); setPoolWarning(null); setInsights(null); setRiskMix(null); setRiskBands([]); setDirections([]); setRouting(true)
     setActivePicker(null)
     try{
       const o = overrides.origin || originCoord || (originText ? await geocode(originText) : null)
@@ -847,10 +813,12 @@ async function fetchThreeRoutes(o, d) {
       setOriginCoord(o); setDestCoord(d)
       addOrMoveMarker('origin', o); addOrMoveMarker('dest', d)
 
-      const features = await fetchThreeRoutes(o, d)
+      const { routes: features, poolWarning: pw } = await fetchThreeRoutes(o, d)
       if (!Array.isArray(features) || !features.length) throw new Error('No route found')
+      if (pw) setPoolWarning(pw)
 
       setRoutes(features)           // three designated
+      setRouteInsightsCache(features.map(f => getInsights(f)))
       setActiveRouteIdx(0)          // select "Shortest" by default
 
       lastRouteRef.current = features[0]
@@ -968,6 +936,7 @@ async function fetchThreeRoutes(o, d) {
     <div className="map-wrap">
       <div className="controls" ref={panelRef}>
         {err && <div role="alert" aria-live="assertive" style={{background:'#3b1f1f',color:'#ffd9d9',padding:8,borderRadius:8,marginBottom:8}}>{err}</div>}
+        {poolWarning && <div role="status" style={{background:'#2d2510',color:'#fde68a',padding:8,borderRadius:8,marginBottom:8,fontSize:13}}>{poolWarning}</div>}
 
         <label>
           Start
@@ -1026,14 +995,16 @@ async function fetchThreeRoutes(o, d) {
         {!!routes.length && (
           <div style={{marginTop:12}}>
             <h3 style={{margin:'8px 0', color:'#cfe1ff', fontSize:14}}>Designated Routes</h3>
-            <div style={{display:'flex', flexDirection:'column', gap:8}}>
+            <div role="listbox" aria-label="Route options" style={{display:'flex', flexDirection:'column', gap:8}}>
               {routes.map((r, i) => {
                 const label = r.properties?._label || r.properties?._preference || `Route ${i+1}`
-                const stats = getInsights(r)
+                const stats = routeInsightsCache[i] || null
                 const isActive = i === activeRouteIdx
                 return (
                   <button
                     key={i}
+                    role="option"
+                    aria-selected={isActive}
                     onClick={() => { setActiveRouteIdx(i); selectRoute(i, r) }}
                     style={{
                       textAlign:'left',
@@ -1078,12 +1049,12 @@ async function fetchThreeRoutes(o, d) {
           onSelect={(km)=>focusAtKm(km)}
         />
 
-        <div style={{marginTop:8, fontSize:12, color:'#9fb1c7'}}>
+        <div style={{marginTop:8, fontSize:12, color:'#9fb1c7'}} role="legend" aria-label="Risk level legend">
           <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
             <span><b>Risk legend:</b></span>
-            <span><i style={{display:'inline-block',width:10,height:10,background:'#10b981',borderRadius:3,marginRight:6}}/>low</span>
-            <span><i style={{display:'inline-block',width:10,height:10,background:'#f59e0b',borderRadius:3,marginRight:6}}/>med</span>
-            <span><i style={{display:'inline-block',width:10,height:10,background:'#ef4444',borderRadius:3,marginRight:6}}/>high</span>
+            <span title="Low risk"><i style={{display:'inline-block',width:10,height:10,background:'#10b981',borderRadius:3,marginRight:4}} aria-hidden="true"/>low (safe)</span>
+            <span title="Medium risk"><i style={{display:'inline-block',width:10,height:10,background:'#f59e0b',borderRadius:3,marginRight:4}} aria-hidden="true"/>med (caution)</span>
+            <span title="High risk"><i style={{display:'inline-block',width:10,height:10,background:'#ef4444',borderRadius:3,marginRight:4}} aria-hidden="true"/>high (avoid)</span>
           </div>
         </div>
 
@@ -1120,7 +1091,22 @@ async function fetchThreeRoutes(o, d) {
         )}
       </div>
 
-      <div ref={mapRef} className="map" style={{minHeight:'60vh'}} />
+      <div style={{position:'relative'}}>
+        <div ref={mapRef} className="map" style={{minHeight:'60vh'}} />
+        {!mapReady && (
+          <div style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+            background:'#0a0f18', borderRadius:14, zIndex:10, flexDirection:'column', gap:12
+          }}>
+            <div style={{
+              width:36, height:36, border:'3px solid #2a3b5f', borderTopColor:'#60a5fa',
+              borderRadius:'50%', animation:'spin 0.8s linear infinite'
+            }} />
+            <span style={{color:'#9fb1c7', fontSize:13}}>Loading map…</span>
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

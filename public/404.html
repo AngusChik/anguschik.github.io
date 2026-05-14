@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="refresh" content="0; url=./index.html" />
+<script>
+// Fallback for some navigations: push path into the hash and go to index
+(function () {
+var base = location.pathname.split('/').slice(0, -1).join('/') + '/';
+var redirect = base + 'index.html#' + (location.pathname.replace(base, '')) + location.search + location.hash;
+location.replace(redirect);
+})();
+</script>
+</head>
+<body></body>
+</html>

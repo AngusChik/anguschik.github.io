@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react"
 
+const RISK_COLORS = { low: "#10b981", med: "#f59e0b", high: "#ef4444" }
+
 /**
- * RouteInsightsBasic
+ * RouteInsights
  * ------------------
- * Small elevation profile card that updates when the active route changes.
- * Works with multiple selectable ORS routes.
+ * Elevation profile + risk-band overlay for the active route.
  */
-export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
+export default function RouteInsights({ i, bands, onScrub, onSelect }) {
   const [hoverIdx, setHoverIdx] = useState(null)
   const [hoverX, setHoverX] = useState(null)
 
@@ -108,6 +109,11 @@ export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
   const tipX = Math.min(W - P - TIP_W, Math.max(P, hx + 6))
   const tipY = P + 2
 
+  // --- Risk band hover (for the band list below the chart)
+  const hoveredBand = showHover && Array.isArray(bands)
+    ? bands.find(b => hKm >= b.fromKm && hKm <= b.toKm)
+    : null
+
   return (
     <div
       style={{
@@ -126,6 +132,8 @@ export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
       </div>
 
       <svg
+        role="img"
+        aria-label="Elevation profile chart with risk overlay"
         width="100%"
         height={H}
         viewBox={`0 0 ${W} ${H}`}
@@ -135,6 +143,26 @@ export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
         onClick={handleClick}
       >
         <rect x="0" y="0" width={W} height={H} fill="#0b1220" rx="6" />
+
+        {/* Risk bands — colored bars along the bottom of the chart */}
+        {Array.isArray(bands) && bands.map((b, idx) => {
+          const x1 = x(b.fromKm)
+          const x2 = x(b.toKm)
+          const bw = Math.max(1, x2 - x1)
+          return (
+            <rect
+              key={idx}
+              x={x1}
+              y={H - P}
+              width={bw}
+              height={P - 1}
+              fill={RISK_COLORS[b.risk] || RISK_COLORS.low}
+              opacity={0.55}
+              rx={1}
+            />
+          )
+        })}
+
         <line
           x1={P}
           x2={W - P}
@@ -167,6 +195,22 @@ export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
         )}
       </svg>
 
+      {/* Hovered risk band detail */}
+      {hoveredBand && (
+        <div style={{
+          marginTop: 4, padding: '4px 8px', borderRadius: 6, fontSize: 11,
+          background: '#111827', border: '1px solid #223048', color: SUB, lineHeight: 1.4,
+        }}>
+          <span style={{ color: RISK_COLORS[hoveredBand.risk], fontWeight: 700, textTransform: 'uppercase', marginRight: 6 }}>
+            {hoveredBand.risk}
+          </span>
+          {hoveredBand.wayLabel}
+          {hoveredBand.reasons?.length > 0 && (
+            <span style={{ marginLeft: 6, opacity: 0.8 }}> — {hoveredBand.reasons.join(', ')}</span>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
         <div>
           <span style={{ color: SUB }}>Distance</span><br />
@@ -185,6 +229,39 @@ export default function RouteInsightsBasic({ i, onScrub, onSelect }) {
           <b>{Math.round(etaMin)} min</b>
         </div>
       </div>
+
+      {/* Risk band summary — scrollable list of all segments */}
+      {Array.isArray(bands) && bands.length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', color: SUB, fontSize: 12 }}>
+            Risk breakdown ({bands.length} segments)
+          </summary>
+          <div style={{ maxHeight: 150, overflow: 'auto', marginTop: 4 }}>
+            {bands.map((b, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex', alignItems: 'baseline', gap: 6,
+                  padding: '3px 0', fontSize: 11, borderBottom: '1px solid #1a2030',
+                  cursor: 'pointer',
+                }}
+                onClick={() => onSelect && onSelect((b.fromKm + b.toKm) / 2)}
+              >
+                <span style={{
+                  display: 'inline-block', width: 8, height: 8, borderRadius: 2, flexShrink: 0,
+                  background: RISK_COLORS[b.risk] || RISK_COLORS.low,
+                }} />
+                <span style={{ color: '#cfe1ff', minWidth: 80 }}>
+                  {b.fromKm.toFixed(1)}–{b.toKm.toFixed(1)} km
+                </span>
+                <span style={{ color: SUB, flex: 1 }}>
+                  {b.wayLabel}{b.reasons?.length ? ` — ${b.reasons.join(', ')}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   )
 }
