@@ -6,23 +6,55 @@
  */
 
 // ---------------------------------------------------------------------------
-// ORS surface-type IDs considered "rough" for risk grading.
-//
-// These map to ORS Extra-Info "surface" codes:
-//   2  = compacted (gravel/earth that's been packed down — still rougher than
-//        asphalt for road bikes and can be slippery when wet)
-//   8  = metal
-//   10 = wood
-//   11 = gravel
-//   12 = ground / dirt
-//   15 = sand
-//   17 = mud
-//   18 = ice
-//
-// ID 2 ("compacted") is intentionally included because it is meaningfully
-// rougher than paved surfaces for standard road/hybrid cycling tyres.
+// ORS surface-type risk weights (0 = perfect, 1 = worst).
+// Covers all 19 ORS Extra-Info "surface" codes.
 // ---------------------------------------------------------------------------
-export const ROUGH_SURFACES = new Set([2, 8, 10, 11, 12, 15, 17, 18])
+export const SURFACE_RISK = {
+  0:  0.3,   // unknown
+  1:  0.0,   // paved / asphalt
+  2:  0.5,   // compacted — rideable but rough, slippery when wet
+  3:  0.7,   // unpaved
+  4:  0.05,  // concrete
+  5:  0.6,   // cobblestone — uncomfortable, slippery when wet
+  6:  0.55,  // sett (cut stone) — rough for road bikes
+  7:  0.15,  // paving stones — minor bumps
+  8:  0.4,   // metal — slippery
+  9:  0.6,   // fine gravel — loose
+  10: 0.5,   // wood — slippery when wet
+  11: 0.7,   // gravel
+  12: 0.75,  // ground / dirt
+  13: 0.65,  // grass — soft, slow
+  14: 0.3,   // reserved
+  15: 0.85,  // sand
+  16: 0.3,   // reserved
+  17: 0.9,   // mud
+  18: 1.0,   // ice
+}
+
+// Scenic comfort scores per surface (higher = more pleasant ride)
+export const SURFACE_SCENIC = {
+  0:  0.0,
+  1:  +0.5,  // asphalt — smooth
+  2:  -0.3,  // compacted
+  3:  -0.8,  // unpaved
+  4:  +0.4,  // concrete
+  5:  -0.5,  // cobblestone
+  6:  -0.4,  // sett
+  7:  +0.2,  // paving stones
+  8:  -0.2,  // metal
+  9:  -0.6,  // fine gravel
+  10: -0.3,  // wood
+  11: -0.8,  // gravel
+  12: -1.0,  // ground / dirt
+  13: -0.7,  // grass
+  14: 0.0,
+  15: -1.2,  // sand
+  16: 0.0,
+  17: -1.4,  // mud
+  18: -1.5,  // ice
+}
+
+export const isRoughSurface = (id) => (SURFACE_RISK[id] ?? 0.3) >= 0.5
 
 // Grade steepness thresholds (percent slope)
 export const STEEP_MED_PCT  = 5
@@ -45,8 +77,79 @@ export const WAYTYPE_LABELS = {
 export const wayLabel = (c) => WAYTYPE_LABELS[Number(c)] ?? 'Other / unknown'
 
 // ---------------------------------------------------------------------------
-// Scenic-score waytype bonuses (higher = more scenic / pleasant)
+// Infrastructure type inference
 // ---------------------------------------------------------------------------
+
+export const INFRA_TYPES = {
+  SEPARATED_PATH: 'separated_path',
+  BUFFERED_LANE:  'buffered_lane',
+  PAINTED_LANE:   'painted_lane',
+  SHARED_ROAD:    'shared_road',
+  OFF_ROAD:       'off_road',
+  RESTRICTED:     'restricted',
+}
+
+export const inferInfraType = (way, suit, avgspeed, waycategory) => {
+  const w = Number(way)
+  const s = suit > 1 ? suit : (suit ?? 0) * 10
+  const spd = avgspeed != null ? Number(avgspeed) : null
+  const cat = Number(waycategory) || 0
+
+  if (w === 8 || cat & 1 || cat & 2) return INFRA_TYPES.RESTRICTED
+  if (w === 4 || w === 7) return INFRA_TYPES.SEPARATED_PATH
+  if (w === 6) {
+    if (spd == null || spd <= 30) return INFRA_TYPES.SEPARATED_PATH
+    if (spd <= 50 && s >= 8) return INFRA_TYPES.BUFFERED_LANE
+    if (spd > 50 || s <= 5) return INFRA_TYPES.PAINTED_LANE
+    return INFRA_TYPES.BUFFERED_LANE
+  }
+  if (w === 5) return INFRA_TYPES.OFF_ROAD
+  if (w === 1) return INFRA_TYPES.RESTRICTED
+  return INFRA_TYPES.SHARED_ROAD
+}
+
+export const INFRA_LABEL = {
+  separated_path: 'Separated bike path',
+  buffered_lane:  'Buffered bike lane',
+  painted_lane:   'Painted bike lane',
+  shared_road:    'Shared road (no bike infra)',
+  off_road:       'Off-road trail',
+  restricted:     'Restricted (stairs/highway)',
+}
+
+// Per-route-type infrastructure risk (higher = worse)
+export const INFRA_RISK = {
+  shortest: {
+    separated_path: 0.0,
+    buffered_lane:  0.0,
+    painted_lane:   0.0,
+    shared_road:    0.3,
+    off_road:       0.6,
+    restricted:     2.0,
+  },
+  safest: {
+    separated_path: 0.0,
+    buffered_lane:  0.4,
+    painted_lane:   1.2,
+    shared_road:    1.8,
+    off_road:       0.3,
+    restricted:     2.5,
+  },
+  scenic: {
+    separated_path: 0.0,
+    buffered_lane:  0.3,
+    painted_lane:   0.8,
+    shared_road:    1.2,
+    off_road:       0.2,
+    restricted:     2.0,
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Scenic-score bonuses
+// ---------------------------------------------------------------------------
+
+// Legacy waytype-based bonuses (used as fallback when infraType is unavailable)
 export const SCENIC_WAY_BONUS = {
   4: +3.0,   // multi-use path
   6: +3.5,   // dedicated bike lane/track
@@ -57,6 +160,15 @@ export const SCENIC_WAY_BONUS = {
   1: -3.0,   // high-speed highway
   8: -4.0,   // stairs
   10: -1.0,  // construction
+}
+
+export const SCENIC_INFRA_BONUS = {
+  separated_path: +3.5,
+  off_road:       +2.5,
+  buffered_lane:  +1.0,
+  painted_lane:   -1.0,
+  shared_road:    -2.0,
+  restricted:     -4.0,
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +199,25 @@ export const avgGrade = (seg) => {
   return dSum ? (dzSum / dSum) * 100 : 0
 }
 
+/** Directional grade — returns { upGrade, downGrade } as percentages. */
+export const directionalGrade = (seg) => {
+  let dSum = 0, upDz = 0, downDz = 0
+  for (let i = 1; i < seg.length; i++) {
+    const [x1, y1, z1 = 0] = seg[i - 1]
+    const [x2, y2, z2 = 0] = seg[i]
+    const d = haversineMeters({ lng: x1, lat: y1 }, { lng: x2, lat: y2 })
+    if (d > 0) {
+      dSum += d
+      const dz = z2 - z1
+      if (dz > 0) upDz += dz; else downDz += -dz
+    }
+  }
+  return {
+    upGrade:   dSum ? (upDz / dSum) * 100 : 0,
+    downGrade: dSum ? (downDz / dSum) * 100 : 0,
+  }
+}
+
 /** Quick total length in meters for a coordinate array. */
 export const segLenM = (c) => {
   let len = 0
@@ -108,26 +239,63 @@ export const valueAt = (i, ranges, fallback = null) => {
   return fallback
 }
 
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+
+/**
+ * Continuous risk value for a single segment (0 = safe, 3 = worst).
+ * Combines suitability, steepness (directional), surface, and traffic speed.
+ * segLen dampens steepness penalty for short segments (<200m).
+ */
+export const continuousRiskValue = ({ suit, surf, avgPct, avgspeed, upGrade, downGrade, segLen }) => {
+  const s = suit > 1 ? suit : (suit ?? 7) * 10
+  const suitRisk = 3.0 * Math.pow(1 - clamp(s, 1, 10) / 10, 1.5)
+
+  const upRisk   = clamp((upGrade ?? avgPct) / 15, 0, 1) * 1.5
+  const downRisk = clamp((downGrade ?? 0) / 10, 0, 1) * 2.5
+  const lenDampen = segLen != null ? clamp(segLen / 200, 0.3, 1.0) : 1.0
+  const steepRisk = Math.max(upRisk, downRisk) * lenDampen
+
+  const surfRisk  = (SURFACE_RISK[surf] ?? 0.3) * 2.0
+  const spd = avgspeed != null ? Number(avgspeed) : null
+  const speedRisk = spd != null ? clamp((spd - 40) / 50, 0, 1) * 2.0 : 0
+
+  return clamp(suitRisk * 0.35 + steepRisk * 0.25 + surfRisk * 0.2 + speedRisk * 0.2, 0, 3)
+}
+
 /**
  * Grade a single route segment as low / med / high risk.
  *
- * Suitability normalization: ORS returns suitability on a 1–10 integer scale.
- * Historically some ORS builds used a 0–1 float scale, so we normalise with
- * `suit > 1 ? suit : suit * 10`.  The `> 1` threshold works because ORS
- * never returns fractional values on the 1–10 scale (always integers).
+ * Returns { risk, reasons, value } where value is the continuous
+ * float in [0, 3] and risk is the display band string.
  */
-export const gradeRisk = ({ suit, surf, avgPct }) => {
+export const gradeRisk = ({ suit, surf, avgPct, avgspeed, infraType, upGrade, downGrade, segLen }) => {
   const reasons = []
-  const s = suit > 1 ? suit : suit * 10
+  const s = suit > 1 ? suit : (suit ?? 7) * 10
   if (s <= 4) reasons.push(`Lower suitability score (${s.toFixed(1)}/10)`)
   else if (s <= 7) reasons.push(`Moderate suitability (${s.toFixed(1)}/10)`)
-  if (avgPct >= STEEP_HIGH_PCT) reasons.push(`Steep grade (~${avgPct.toFixed(1)}%)`)
-  else if (avgPct >= STEEP_MED_PCT) reasons.push(`Noticeable grade (~${avgPct.toFixed(1)}%)`)
-  const rough = ROUGH_SURFACES.has(surf)
-  if (rough) reasons.push('Unpaved / rough surface')
-  const risk =
-    s <= 4 ? 'high' : (s <= 7 || avgPct >= STEEP_HIGH_PCT || rough ? 'med' : 'low')
-  return { risk, reasons }
+
+  const dg = downGrade ?? 0
+  const ug = upGrade ?? avgPct
+  if (dg >= STEEP_HIGH_PCT) reasons.push(`Steep descent (~${dg.toFixed(1)}%)`)
+  else if (ug >= STEEP_HIGH_PCT) reasons.push(`Steep climb (~${ug.toFixed(1)}%)`)
+  else if (dg >= STEEP_MED_PCT) reasons.push(`Noticeable descent (~${dg.toFixed(1)}%)`)
+  else if (ug >= STEEP_MED_PCT) reasons.push(`Noticeable climb (~${ug.toFixed(1)}%)`)
+
+  const surfW = SURFACE_RISK[surf] ?? 0.3
+  if (surfW >= 0.7) reasons.push('Unpaved / rough surface')
+  else if (surfW >= 0.5) reasons.push('Rough surface')
+
+  const spd = avgspeed != null ? Number(avgspeed) : null
+  if (spd != null && spd >= 60) reasons.push(`High-speed road (~${Math.round(spd)} km/h)`)
+
+  if (infraType === 'painted_lane' && spd != null && spd > 50)
+    reasons.push('Painted bike lane on fast road')
+  else if (infraType === 'shared_road')
+    reasons.push('No cycling infrastructure')
+
+  const value = continuousRiskValue({ suit, surf, avgPct, avgspeed, upGrade, downGrade, segLen })
+  const risk = value >= 2.0 ? 'high' : value >= 1.0 ? 'med' : 'low'
+  return { risk, reasons, value }
 }
 
 // ---------------------------------------------------------------------------
@@ -140,12 +308,14 @@ export const toRiskFCRaw = (feature) => {
   const extras = feature?.properties?.extras || {}
   if (coords.length < 2) return null
 
-  const suitVals = extras.suitability?.values || []
-  const wayVals  = extras.waytype?.values || []
-  const surfVals = extras.surface?.values || []
+  const suitVals  = extras.suitability?.values || []
+  const wayVals   = extras.waytype?.values || []
+  const surfVals  = extras.surface?.values || []
+  const speedVals = extras.avgspeed?.values || []
+  const catVals   = extras.waycategory?.values || []
 
   const cuts = new Set([0, coords.length - 1])
-  ;[suitVals, wayVals, surfVals].forEach((arr) => {
+  ;[suitVals, wayVals, surfVals, speedVals, catVals].forEach((arr) => {
     for (const [a, b] of arr || []) { cuts.add(a); cuts.add(b) }
   })
   const idx = Array.from(cuts).sort((a, b) => a - b)
@@ -156,16 +326,21 @@ export const toRiskFCRaw = (feature) => {
     const s = idx[i]
     const e = Math.max(s + 1, idx[i + 1])
     const m = Math.floor((s + e) / 2)
-    const suit = valueAt(m, suitVals, 7)
-    const way  = valueAt(m, wayVals, null)
-    const surf = valueAt(m, surfVals, null)
-    const seg  = coords.slice(s, e + 1)
-    const avgPct = avgGrade(seg)
-    const { risk, reasons } = gradeRisk({ suit, surf, avgPct })
+    const suit     = valueAt(m, suitVals, 7)
+    const way      = valueAt(m, wayVals, null)
+    const surf     = valueAt(m, surfVals, null)
+    const avgspeed = valueAt(m, speedVals, null)
+    const waycat   = valueAt(m, catVals, 0)
+    const seg      = coords.slice(s, e + 1)
+    const sLen     = segLenM(seg)
+    const avgPct   = avgGrade(seg)
+    const { upGrade, downGrade } = directionalGrade(seg)
+    const infraType = inferInfraType(way, suit, avgspeed, waycat)
+    const { risk, reasons, value } = gradeRisk({ suit, surf, avgPct, avgspeed, infraType, upGrade, downGrade, segLen: sLen })
     fc.features.push({
       type: 'Feature',
       properties: {
-        rid, risk, suit, way, surf,
+        rid, risk, value, suit, way, surf, avgspeed, waycategory: waycat, infraType,
         sIndex: s, eIndex: e,
         gradePct: +avgPct.toFixed(1),
         why: reasons.join(' • '),
@@ -188,12 +363,18 @@ export const distanceOf = (feature) =>
 
 /**
  * Weighted risk score per km (lower = safer).
- * high segments score 3×, med 2×, low 1× — weighted by segment length.
- * Returns 2.0 (neutral / med-equivalent) when extra_info is unavailable.
+ *
+ * When routeType is provided, uses infrastructure-aware scoring:
+ * each segment's infra risk (from INFRA_RISK table) plus the base
+ * risk band weight, combined per-km.
+ *
+ * When routeType is omitted, falls back to the original 3/2/1 band weights.
+ * Returns 2.0 (neutral) when extra_info is unavailable.
  */
-export const riskScore = (feature, toRiskFC) => {
+export const riskScore = (feature, toRiskFC, routeType) => {
   const fc = toRiskFC(feature)
   if (!fc?.features?.length) return 2.0
+  const infraTable = routeType ? INFRA_RISK[routeType] : null
   let lenM = 0, score = 0
   for (const f of fc.features) {
     const c = f.geometry?.coordinates || []
@@ -204,7 +385,15 @@ export const riskScore = (feature, toRiskFC) => {
       seg += haversineMeters({ lng: x1, lat: y1 }, { lng: x2, lat: y2 })
     }
     lenM += seg
-    const w = f.properties?.risk === 'high' ? 3 : f.properties?.risk === 'med' ? 2 : 1
+
+    let w
+    if (infraTable && f.properties?.infraType) {
+      const bandW = f.properties.risk === 'high' ? 3 : f.properties.risk === 'med' ? 2 : 1
+      const infraW = infraTable[f.properties.infraType] ?? 0
+      w = bandW * 0.4 + infraW * 0.6
+    } else {
+      w = f.properties?.risk === 'high' ? 3 : f.properties?.risk === 'med' ? 2 : 1
+    }
     score += w * seg
   }
   const km = Math.max(0.001, lenM / 1000)
@@ -291,6 +480,35 @@ export const cloneAndLabel = (f, _label, _tag) => {
   return c
 }
 
+/**
+ * Geometric overlap fraction between two routes (0 = disjoint, 1 = identical).
+ * Samples both routes every ~100m and counts how many samples from A
+ * are within 50m of any sample from B.
+ */
+export const routeOverlap = (a, b) => {
+  const sample = (feature, stepM = 100) => {
+    const coords = feature?.geometry?.coordinates || []
+    if (coords.length < 2) return []
+    const pts = [coords[0]]
+    let acc = 0
+    for (let i = 1; i < coords.length; i++) {
+      const [x1, y1] = coords[i - 1], [x2, y2] = coords[i]
+      acc += haversineMeters({ lng: x1, lat: y1 }, { lng: x2, lat: y2 })
+      if (acc >= stepM) { pts.push(coords[i]); acc = 0 }
+    }
+    return pts
+  }
+  const ptsA = sample(a), ptsB = sample(b)
+  if (!ptsA.length || !ptsB.length) return 0
+  let near = 0
+  for (const [ax, ay] of ptsA) {
+    for (const [bx, by] of ptsB) {
+      if (haversineMeters({ lng: ax, lat: ay }, { lng: bx, lat: by }) < 50) { near++; break }
+    }
+  }
+  return near / ptsA.length
+}
+
 // ---------------------------------------------------------------------------
 // Scenic scoring
 // ---------------------------------------------------------------------------
@@ -308,7 +526,7 @@ export const cloneAndLabel = (f, _label, _tag) => {
  */
 export const scenicScore = (feature, toRiskFC, envBonusFn) => {
   const fc = toRiskFC(feature)
-  if (!fc?.features?.length) return -1e9
+  if (!fc?.features?.length) return null
 
   let totalM = 0, score = 0
   for (const f of fc.features) {
@@ -317,14 +535,15 @@ export const scenicScore = (feature, toRiskFC, envBonusFn) => {
     if (L <= 0) continue
     totalM += L
 
-    const way  = Number(f.properties?.way ?? -1)
-    const surf = f.properties?.surf ?? f.properties?.surface
+    const infra = f.properties?.infraType
+    const way   = Number(f.properties?.way ?? -1)
+    const surf  = f.properties?.surf ?? f.properties?.surface
 
-    const bWay  = SCENIC_WAY_BONUS[way] ?? 0
-    const bSurf = ROUGH_SURFACES.has(Number(surf)) ? -1.2 : +0.4
-    const bEnv  = typeof envBonusFn === 'function' ? envBonusFn(coords) : 0
+    const bInfra = infra ? (SCENIC_INFRA_BONUS[infra] ?? 0) : (SCENIC_WAY_BONUS[way] ?? 0)
+    const bSurf  = SURFACE_SCENIC[Number(surf)] ?? 0
+    const bEnv   = typeof envBonusFn === 'function' ? envBonusFn(coords) : 0
 
-    const segScore = (bWay + bSurf + bEnv * 0.25) * (L / 1000)
+    const segScore = (bInfra + bSurf + bEnv * 0.25) * (L / 1000)
     score += segScore
   }
 
