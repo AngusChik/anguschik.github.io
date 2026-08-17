@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | SponsorSkip V1</title>
+    <meta
+      name="description"
+      content="Project detail for SponsorSkip V1, a Chrome extension that skips YouTube sponsor segments using SponsorBlock data and transcript analysis."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="project">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link active" href="./work.html">Work</a>
+        </nav>
+      </header>
+
+      <main class="page project-page">
+        <section class="project-body reveal">
+          <div class="project-body-section">
+            <p class="project-body-label">Problem</p>
+            <p class="project-body-text">Manually skipping YouTube sponsor segments is repetitive and interrupts viewing. V1 explored automating this by querying an existing crowd-sourced API and mapping its timestamp data to the YouTube player.</p>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Process</p>
+            <ul class="project-process-list">
+              <li>Queried the SponsorBlock API to fetch segment timestamps per video ID</li>
+              <li>Injected a content script to monitor playback position and trigger skips</li>
+              <li>Built a popup UI for toggling the extension and viewing segment data</li>
+            </ul>
+          </div>
+          <div class="project-body-section">
+            <p class="project-body-label">Learnings</p>
+            <p class="project-body-text">Working with a live DOM from a content script is fragile. YouTube's dynamic single-page rendering meant the player could reload without a full navigation — catching those state changes reliably required careful event handling and retry logic.</p>
+          </div>
+        </section>
+
+        <section class="project-intro reveal">
+          <a class="back-link" href="./work.html">&larr; Back to Work</a>
+          <p class="eyebrow">08 / Extension</p>
+          <h1>SponsorSkip V1</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A Chrome extension that skips YouTube sponsor segments by querying
+            the SponsorBlock API and mapping timestamps to the video player.
+          </p>
+        </section>
+
+        <section class="paper-panel project-panel reveal reveal-delay">
+          <div class="project-brief">
+            <div class="project-brief-header">
+              <span class="project-brief-num">08</span>
+              <span class="project-brief-type">Extension</span>
+              <span class="project-brief-year">2024</span>
+            </div>
+            <p class="project-brief-lead">A Chrome extension that skips YouTube sponsor segments by querying the SponsorBlock API and mapping timestamps to the video player.</p>
+            <div class="project-brief-rule"></div>
+            <p class="project-brief-body">On page load, the extension fetches sponsor segment data from the SponsorBlock API using the current video ID. A content script monitors the player's current time and seeks past any flagged segments automatically. The popup provides a simple toggle and live segment count for the active video.</p>
+          </div>
+          <div class="project-notes">
+            <div>
+              <p class="detail-label">Outcome</p>
+              <p>A working V1 that proved the concept and exposed the limitations of relying on external data — leading directly to V2.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="project-tags">
+          <span class="project-tag">Chrome Extension</span>
+          <span class="project-tag">JavaScript</span>
+          <span class="project-tag">YouTube</span>
+          <span class="project-tag">API Integration</span>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

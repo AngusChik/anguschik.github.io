@@ -18,6 +18,7 @@
           <a class="nav-link" href="./index.html">Home</a>
           <a class="nav-link active" href="./about.html">About</a>
           <a class="nav-link" href="./work.html">Work</a>
+          <a class="nav-link" href="./gallery.html">Gallery</a>
         </nav>
       </header>
 
@@ -44,12 +45,37 @@
         </section>
 
         <section class="paper-panel about-panel reveal reveal-delay">
-          <div class="about-visual" aria-hidden="true">
-            <div class="dvd-logo">A.C.</div>
-            <span class="corner corner--tl"></span>
-            <span class="corner corner--tr"></span>
-            <span class="corner corner--bl"></span>
-            <span class="corner corner--br"></span>
+          <div class="about-visual">
+            <!--
+              Picture gallery. Each tile floats and crossfades between its 2
+              stacked photos. Swap any src for another file in ./images/
+            -->
+            <div class="about-gallery reveal reveal-delay">
+              <figure class="about-shot" style="--float-dur: 8s; --float-delay: 0s; --cycle: 12s;">
+                <span class="about-shot-frame">
+                  <img src="./images/pic-127.jpg" width="801" height="1200" alt="" loading="lazy" />
+                  <img src="./images/pic-4.jpg" width="801" height="1200" alt="" loading="lazy" />
+                </span>
+              </figure>
+              <figure class="about-shot" style="--float-dur: 9.5s; --float-delay: -1.4s; --cycle: 14s;">
+                <span class="about-shot-frame">
+                  <img src="./images/pic-44.jpg" width="801" height="1200" alt="" loading="lazy" />
+                  <img src="./images/pic-55.jpg" width="801" height="1200" alt="" loading="lazy" />
+                </span>
+              </figure>
+              <figure class="about-shot" style="--float-dur: 8.6s; --float-delay: -2.2s; --cycle: 13s;">
+                <span class="about-shot-frame">
+                  <img src="./images/pic-91.jpg" width="801" height="1200" alt="" loading="lazy" />
+                  <img src="./images/test8-4824.jpg" width="801" height="1200" alt="" loading="lazy" />
+                </span>
+              </figure>
+              <figure class="about-shot" style="--float-dur: 10s; --float-delay: -0.7s; --cycle: 15s;">
+                <span class="about-shot-frame">
+                  <img src="./images/test15-0731.jpg" width="689" height="1200" alt="" loading="lazy" />
+                  <img src="./images/test8-4866.jpg" width="886" height="1200" alt="" loading="lazy" />
+                </span>
+              </figure>
+            </div>
           </div>
           <div class="about-details">
             <div>

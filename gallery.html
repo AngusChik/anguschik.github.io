@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A.C. | Gallery</title>
+    <meta
+      name="description"
+      content="A quiet, floating gallery of images — a minimal visual index by A.C."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="gallery">
+    <div class="site-frame">
+      <header class="topbar">
+        <a class="brand" href="./index.html" aria-label="A.C. home">A.C</a>
+        <nav class="nav" aria-label="Primary">
+          <a class="nav-link" href="./index.html">Home</a>
+          <a class="nav-link" href="./about.html">About</a>
+          <a class="nav-link" href="./work.html">Work</a>
+          <a class="nav-link active" href="./gallery.html">Gallery</a>
+        </nav>
+      </header>
+
+      <main class="page gallery-page">
+        <div class="gallery-head reveal">
+          <p class="eyebrow">Gallery</p>
+          <h1>A floating index.</h1>
+          <div class="hero-rule"></div>
+          <p class="support">
+            A quiet collection of images, drifting gently. Hover to draw one
+            closer.
+          </p>
+        </div>
+
+        <!--
+          Photos live in ./images/ (web-optimized copies of the originals).
+          To change one, swap its src and keep the width/height matched to the
+          image's real pixel ratio so the masonry layout stays stable on load.
+        -->
+        <div class="gallery-grid reveal reveal-delay">
+          <figure class="gallery-item" style="--float-dur: 7.5s; --float-delay: 0s;">
+            <span class="gallery-float">
+              <img src="./images/dsc_8473.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Drift</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 9s; --float-delay: -1.6s;">
+            <span class="gallery-float">
+              <img src="./images/test15-6698.jpg" width="1200" height="812" alt="" loading="lazy" />
+              <figcaption>Quiet</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 8s; --float-delay: -0.8s;">
+            <span class="gallery-float">
+              <img src="./images/pic-3.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Fold</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 8.5s; --float-delay: -2.4s;">
+            <span class="gallery-float">
+              <img src="./images/test15-5008.jpg" width="675" height="1200" alt="" loading="lazy" />
+              <figcaption>Still</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 7s; --float-delay: -3.2s;">
+            <span class="gallery-float">
+              <img src="./images/dsc_8506.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Grain</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 9.5s; --float-delay: -1.2s;">
+            <span class="gallery-float">
+              <img src="./images/pic-43.jpg" width="1200" height="851" alt="" loading="lazy" />
+              <figcaption>Shore</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 8.2s; --float-delay: -0.4s;">
+            <span class="gallery-float">
+              <img src="./images/test11-6136.jpg" width="1200" height="772" alt="" loading="lazy" />
+              <figcaption>Haze</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 7.8s; --float-delay: -2.9s;">
+            <span class="gallery-float">
+              <img src="./images/pic-46.jpg" width="1200" height="817" alt="" loading="lazy" />
+              <figcaption>North</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 9.2s; --float-delay: -1.9s;">
+            <span class="gallery-float">
+              <img src="./images/test15-6287.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Slate</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 8.7s; --float-delay: -0.6s;">
+            <span class="gallery-float">
+              <img src="./images/test15a-2-20.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Linen</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 7.3s; --float-delay: -3.6s;">
+            <span class="gallery-float">
+              <img src="./images/test8-5286.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Ember</figcaption>
+            </span>
+          </figure>
+
+          <figure class="gallery-item" style="--float-dur: 9.8s; --float-delay: -2.1s;">
+            <span class="gallery-float">
+              <img src="./images/pic-7.jpg" width="1200" height="801" alt="" loading="lazy" />
+              <figcaption>Dusk</figcaption>
+            </span>
+          </figure>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span data-year></span> A.C.</p>
+        <p>Design &amp; Direction</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
