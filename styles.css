@@ -569,6 +569,37 @@ body[data-page="about"] .split-intro h1 {
   color: var(--muted);
 }
 
+.project-source-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1.35rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(182, 172, 125, 0.52);
+  color: var(--text);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.project-source-link span {
+  font-size: 0.95rem;
+  transition: transform 220ms var(--ease);
+}
+
+.project-source-link:hover,
+.project-source-link:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.project-source-link:hover span,
+.project-source-link:focus-visible span {
+  transform: translate(2px, -2px);
+}
+
 .back-link {
   display: inline-flex;
   align-items: center;
