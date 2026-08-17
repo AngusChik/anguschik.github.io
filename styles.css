@@ -572,8 +572,8 @@ body[data-page="about"] .split-intro h1 {
 .project-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem 1.25rem;
-  margin-top: 1.35rem;
+  gap: 0.8rem 1.65rem;
+  margin-top: 1.8rem;
 }
 
 .project-link {
