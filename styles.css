@@ -510,6 +510,11 @@ body[data-page="about"] .split-intro h1 {
 .about-shot img:nth-child(1) { animation-delay: calc(var(--cycle, 13s) * 0); }
 .about-shot img:nth-child(2) { animation-delay: calc(var(--cycle, 13s) * -0.5); }
 
+.about-shot img:only-child {
+  opacity: 1;
+  animation: none;
+}
+
 @media (hover: hover) {
   .about-shot:hover {
     animation-play-state: paused;
