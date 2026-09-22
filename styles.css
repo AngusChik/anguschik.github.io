@@ -260,7 +260,7 @@ h2 {
 .support,
 .preview-card p,
 .work-main p,
-.about-details p {
+.about-meta p {
   margin: 0;
   line-height: 1.72;
 }
@@ -399,7 +399,7 @@ body[data-page="about"] .split-intro {
 
 body[data-page="about"] .split-intro h1 {
   max-width: 100%;
-  font-size: clamp(2.7rem, 4.7vw, 4.8rem);
+  font-size: clamp(2.7rem, 3.6vw, 3.8rem);
   letter-spacing: -0.035em;
 }
 
@@ -444,8 +444,8 @@ body[data-page="about"] .split-intro h1 {
 }
 
 .about-use-cases {
-  margin-top: clamp(1.8rem, 3.5vh, 2.8rem);
-  padding-top: 1.2rem;
+  margin-top: clamp(1.3rem, 2.5vh, 1.9rem);
+  padding-top: 1rem;
   border-top: 1px solid var(--panel-line);
 }
 
@@ -478,6 +478,26 @@ body[data-page="about"] .split-intro h1 {
   content: "–";
   position: absolute;
   left: 0;
+  color: var(--accent);
+}
+
+.about-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.8rem, 1.4vw, 1.25rem);
+  margin-top: clamp(1rem, 1.8vh, 1.35rem);
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--panel-line);
+}
+
+.about-meta p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.about-meta .detail-label {
+  margin-bottom: 0.45rem;
   color: var(--accent);
 }
 
@@ -642,7 +662,7 @@ body[data-page="about"] .split-intro h1 {
 
 .about-panel {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .project-panel {
@@ -788,18 +808,6 @@ body[data-page="about"] .split-intro h1 {
   top: 54%;
   background: var(--accent);
   box-shadow: 0 0 0 18px rgba(147, 141, 102, 0.1);
-}
-
-.about-details {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.4rem;
-  padding: 1.5rem 1.8rem;
-  border-top: 1px solid var(--paper-border);
-}
-
-.about-details p {
-  color: var(--paper-text-dim);
 }
 
 .project-notes {
@@ -1682,8 +1690,7 @@ body.gallery-lightbox-open {
     margin-bottom: 0.3rem;
   }
 
-  .preview-grid,
-  .about-details {
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1787,7 +1794,6 @@ body.gallery-lightbox-open {
   .project-intro,
   .preview-card,
   .work-row,
-  .about-details,
   .project-notes,
   .project-visual {
     padding-left: 1rem;
