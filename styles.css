@@ -553,6 +553,10 @@ body[data-page="about"] .split-intro h1 {
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
+.about-slide-layout-a {
+  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
 .about-slide-layout-a .about-slide-panel-3,
 .about-slide-layout-b .about-slide-panel-1 {
   grid-column: 1 / -1;
