@@ -489,34 +489,79 @@ body[data-page="about"] .split-intro h1 {
   padding: clamp(0.45rem, 0.8vw, 0.8rem);
 }
 
-/* A quiet editorial trio: one lead portrait and two supporting frames. */
-.about-editorial {
+/* Four three-image compositions crossfade as complete editorial sets. */
+.about-slideshow {
+  position: relative;
   width: 100%;
   height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.82fr);
-  gap: clamp(0.28rem, 0.55vw, 0.48rem);
-}
-
-.about-editorial-main,
-.about-editorial-shot {
-  margin: 0;
-  min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: #d9d7ce;
 }
 
-.about-editorial-stack {
-  min-width: 0;
-  min-height: 0;
+.about-slide {
+  position: absolute;
+  inset: 0;
   display: grid;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: clamp(0.28rem, 0.55vw, 0.48rem);
+  opacity: 0;
+  visibility: hidden;
+  z-index: 0;
+  transition:
+    opacity 1200ms var(--ease),
+    visibility 0s linear 1200ms;
 }
 
-.about-editorial img {
+.about-slide.is-active {
+  opacity: 1;
+  visibility: visible;
+  z-index: 1;
+  transition-delay: 0s;
+}
+
+.about-slide-panel {
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #c9c6bb;
+}
+
+.about-slide-layout-a,
+.about-slide-layout-b {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.about-slide-layout-a .about-slide-panel-3,
+.about-slide-layout-b .about-slide-panel-1 {
+  grid-column: 1 / -1;
+}
+
+.about-slide-layout-b .about-slide-panel-1 {
+  grid-row: 1;
+}
+
+.about-slide-layout-c,
+.about-slide-layout-d {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.about-slide-layout-c .about-slide-panel-1 {
+  grid-row: 1 / -1;
+}
+
+.about-slide-layout-d {
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+}
+
+.about-slide-layout-d .about-slide-panel-3 {
+  grid-column: 2;
+  grid-row: 1 / -1;
+}
+
+.about-slide img {
   display: block;
   width: 100%;
   height: 100%;
@@ -1724,23 +1769,8 @@ body.gallery-lightbox-open {
     padding: 0.35rem;
   }
 
-  .about-editorial {
+  .about-slideshow {
     height: auto;
-    grid-template-columns: 1fr;
-    gap: 0.35rem;
-  }
-
-  .about-editorial-main {
-    aspect-ratio: 4 / 5;
-  }
-
-  .about-editorial-stack {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: none;
-    gap: 0.35rem;
-  }
-
-  .about-editorial-shot {
     aspect-ratio: 4 / 5;
   }
 
@@ -1814,8 +1844,9 @@ body.gallery-lightbox-open {
   .reveal,
   .hero-photo,
   .hero-photo img,
-  .about-editorial,
-  .about-editorial img,
+  .about-slideshow,
+  .about-slide,
+  .about-slide img,
   .preview-card,
   .work-row,
   .gallery-float,

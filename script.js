@@ -146,6 +146,52 @@ if (document.startViewTransition && !reduceMotion) {
 })();
 
 // ---------------------------------------------------------------------------
+// About slideshow — four three-image compositions crossfade as complete sets.
+// The first set remains static when reduced motion is requested.
+// ---------------------------------------------------------------------------
+(function initAboutSlideshow() {
+  const slideshow = document.querySelector("[data-about-slideshow]");
+  if (!slideshow) return;
+
+  const slides = Array.from(slideshow.querySelectorAll("[data-about-slide]"));
+  if (slides.length < 2 || reduceMotion) return;
+
+  let currentIndex = 0;
+  let timer = 0;
+
+  const showNext = () => {
+    const previous = slides[currentIndex];
+    currentIndex = (currentIndex + 1) % slides.length;
+    const next = slides[currentIndex];
+
+    previous.classList.remove("is-active");
+    previous.setAttribute("aria-hidden", "true");
+    next.classList.add("is-active");
+    next.setAttribute("aria-hidden", "false");
+    slideshow.dataset.activeSlide = String(currentIndex + 1);
+  };
+
+  const start = () => {
+    if (timer) return;
+    timer = window.setInterval(showNext, 6500);
+  };
+
+  const stop = () => {
+    if (!timer) return;
+    window.clearInterval(timer);
+    timer = 0;
+  };
+
+  slideshow.dataset.activeSlide = "1";
+  start();
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else start();
+  });
+})();
+
+// ---------------------------------------------------------------------------
 // Portfolio image protection — deter casual copying across the photography
 // pages. Public browser images cannot be made fully unrecoverable, but native
 // dragging and the image context menu are disabled here.
