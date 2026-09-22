@@ -146,9 +146,32 @@ if (document.startViewTransition && !reduceMotion) {
 })();
 
 // ---------------------------------------------------------------------------
-// Gallery viewer — accessible click-to-expand navigation with casual image
-// copy deterrents. Public browser images cannot be made fully unrecoverable,
-// but native dragging and the image context menu are disabled here.
+// Portfolio image protection — deter casual copying across the photography
+// pages. Public browser images cannot be made fully unrecoverable, but native
+// dragging and the image context menu are disabled here.
+// ---------------------------------------------------------------------------
+(function initProtectedImages() {
+  const protectedAreas = document.querySelectorAll(
+    ".gallery-grid, .gallery-lightbox, .about-visual"
+  );
+
+  protectedAreas.forEach((area) => {
+    area.addEventListener("contextmenu", (event) => {
+      if (event.target instanceof Element && event.target.closest("img")) {
+        event.preventDefault();
+      }
+    });
+
+    area.addEventListener("dragstart", (event) => {
+      if (event.target instanceof Element && event.target.closest("img")) {
+        event.preventDefault();
+      }
+    });
+  });
+})();
+
+// ---------------------------------------------------------------------------
+// Gallery viewer — accessible click-to-expand navigation.
 // ---------------------------------------------------------------------------
 (function initGalleryViewer() {
   const gallery = document.querySelector(".gallery-grid");
@@ -242,13 +265,4 @@ if (document.startViewTransition && !reduceMotion) {
     }
   });
 
-  [gallery, lightbox].forEach((area) => {
-    area.addEventListener("contextmenu", (event) => {
-      if (event.target.closest("img")) event.preventDefault();
-    });
-
-    area.addEventListener("dragstart", (event) => {
-      if (event.target.closest("img")) event.preventDefault();
-    });
-  });
 })();

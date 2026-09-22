@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>A.C. | About</title>
+    <title>A.C. | Portrait Photography</title>
     <meta
       name="description"
-      content="About A.C., a minimalist designer focused on clear systems, restraint, and thoughtful web experiences."
+      content="Natural portrait photography in Toronto for Instagram, profiles, and everyday moments."
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=about-portraits-1" />
   </head>
   <body data-page="about">
     <div class="site-frame">
@@ -26,19 +26,23 @@
         <section class="split-intro reveal">
           <div class="split-intro-main">
             <p class="eyebrow">About</p>
-            <h1>I design with clarity, restraint, and purpose.</h1>
+            <h1>Photos you’ll actually want to post.</h1>
             <div class="hero-rule"></div>
             <p class="support">
-              I focus on structure, typography, and systems that communicate with
-              intention. Every project is an opportunity to simplify complexity
-              and create space for calm.
+              For a refreshed Instagram feed, a new profile photo, or simply a
+              good picture of yourself. The shoot stays relaxed, lightly directed,
+              and true to how you look.
             </p>
-            <div class="about-experience">
-              <p class="about-experience-label">Experience</p>
-              <ul class="about-experience-list">
-                <li>Art direction and visual systems for independent clients</li>
-                <li>Campaign design across print, digital, and identity touchpoints</li>
-                <li>Collaborative work with studios, agencies, and cultural spaces</li>
+            <p class="about-note">No modelling experience needed.</p>
+            <a class="about-gallery-link" href="./gallery.html">
+              View the gallery <span aria-hidden="true">&rarr;</span>
+            </a>
+            <div class="about-use-cases">
+              <p class="about-use-cases-label">Good for</p>
+              <ul class="about-use-cases-list">
+                <li>Instagram and personal content</li>
+                <li>Profile and dating photos</li>
+                <li>Birthdays, graduations, and everyday portraits</li>
               </ul>
             </div>
           </div>
@@ -46,48 +50,53 @@
 
         <section class="paper-panel about-panel reveal reveal-delay">
           <div class="about-visual">
-            <!--
-              Picture gallery. Each tile floats and crossfades between its 2
-              stacked photos. Swap any src for another file in ./images/
-            -->
-            <div class="about-gallery reveal reveal-delay">
-              <figure class="about-shot" style="--float-dur: 8s; --float-delay: 0s; --cycle: 12s;">
-                <span class="about-shot-frame">
-                  <img src="./images/pic-127.jpg" width="801" height="1200" alt="" loading="lazy" />
-                  <img src="./images/pic-4.jpg" width="801" height="1200" alt="" loading="lazy" />
-                </span>
+            <div class="about-editorial">
+              <figure class="about-editorial-main">
+                <img
+                  src="./images/test8-4866.jpg"
+                  width="886"
+                  height="1200"
+                  alt="Portrait of a man seated indoors"
+                  fetchpriority="high"
+                  draggable="false"
+                />
               </figure>
-              <figure class="about-shot" style="--float-dur: 9.5s; --float-delay: -1.4s; --cycle: 14s;">
-                <span class="about-shot-frame">
-                  <img src="./images/pic-44.jpg" width="801" height="1200" alt="" loading="lazy" />
-                  <img src="./images/pic-55.jpg" width="801" height="1200" alt="" loading="lazy" />
-                </span>
-              </figure>
-              <figure class="about-shot" style="--float-dur: 8.6s; --float-delay: -2.2s; --cycle: 13s;">
-                <span class="about-shot-frame">
-                  <img src="./images/pic-91.jpg" width="801" height="1200" alt="" loading="lazy" />
-                  <img src="./images/test8-4824.jpg" width="801" height="1200" alt="" loading="lazy" />
-                </span>
-              </figure>
-              <figure class="about-shot" style="--float-dur: 10s; --float-delay: -0.7s; --cycle: 15s;">
-                <span class="about-shot-frame">
-                  <img src="./images/test8-4866.jpg" width="886" height="1200" alt="" loading="lazy" />
-                </span>
-              </figure>
+              <div class="about-editorial-stack">
+                <figure class="about-editorial-shot">
+                  <img
+                    src="./images/test11-6136.jpg"
+                    width="1200"
+                    height="772"
+                    alt="Outdoor portrait of a man against dark greenery"
+                    loading="lazy"
+                    draggable="false"
+                  />
+                </figure>
+                <figure class="about-editorial-shot">
+                  <img
+                    src="./images/pic-91.jpg"
+                    width="801"
+                    height="1200"
+                    alt="A smiling couple posing together"
+                    loading="lazy"
+                    draggable="false"
+                  />
+                </figure>
+              </div>
             </div>
           </div>
           <div class="about-details">
             <div>
-              <p class="detail-label">Practice</p>
-              <p>Web design, art direction, and identity-led digital systems.</p>
+              <p class="detail-label">For</p>
+              <p>Portraits, profile photos, and social content.</p>
             </div>
             <div>
-              <p class="detail-label">Approach</p>
-              <p>Quiet visual language, strong hierarchy, and deliberate pacing.</p>
+              <p class="detail-label">Direction</p>
+              <p>Simple prompts, easy movement, and nothing forced.</p>
             </div>
             <div>
               <p class="detail-label">Based in</p>
-              <p>Toronto, working across independent and collaborative projects.</p>
+              <p>Toronto.</p>
             </div>
           </div>
         </section>
@@ -99,6 +108,6 @@
       </footer>
     </div>
 
-    <script src="./script.js"></script>
+    <script src="./script.js?v=about-portraits-1"></script>
   </body>
 </html>
