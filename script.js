@@ -144,3 +144,111 @@ if (document.startViewTransition && !reduceMotion) {
     });
   });
 })();
+
+// ---------------------------------------------------------------------------
+// Gallery viewer — accessible click-to-expand navigation with casual image
+// copy deterrents. Public browser images cannot be made fully unrecoverable,
+// but native dragging and the image context menu are disabled here.
+// ---------------------------------------------------------------------------
+(function initGalleryViewer() {
+  const gallery = document.querySelector(".gallery-grid");
+  const lightbox = document.querySelector("[data-gallery-lightbox]");
+  if (!gallery || !lightbox) return;
+
+  const frame = document.querySelector(".site-frame");
+  const openButtons = Array.from(gallery.querySelectorAll("[data-gallery-open]"));
+  const sourceImages = openButtons.map((button) => button.querySelector("img"));
+  const expandedImage = lightbox.querySelector("[data-gallery-image]");
+  const closeButton = lightbox.querySelector("[data-gallery-close]");
+  const previousButton = lightbox.querySelector("[data-gallery-prev]");
+  const nextButton = lightbox.querySelector("[data-gallery-next]");
+  const count = lightbox.querySelector("[data-gallery-count]");
+  const stage = lightbox.querySelector(".gallery-lightbox-stage");
+
+  if (!sourceImages.length || !expandedImage || !closeButton || !previousButton || !nextButton || !count) {
+    return;
+  }
+
+  let currentIndex = 0;
+  let lastTrigger = null;
+
+  const showImage = (index) => {
+    currentIndex = (index + sourceImages.length) % sourceImages.length;
+    const source = sourceImages[currentIndex];
+    expandedImage.src = source.currentSrc || source.src;
+    expandedImage.alt = `Expanded gallery image ${currentIndex + 1} of ${sourceImages.length}`;
+    count.textContent = `${currentIndex + 1} / ${sourceImages.length}`;
+  };
+
+  const open = (index, trigger) => {
+    lastTrigger = trigger;
+    showImage(index);
+    lightbox.hidden = false;
+    frame?.setAttribute("inert", "");
+    document.body.classList.add("gallery-lightbox-open");
+    closeButton.focus({ preventScroll: true });
+  };
+
+  const close = () => {
+    if (lightbox.hidden) return;
+    lightbox.hidden = true;
+    frame?.removeAttribute("inert");
+    document.body.classList.remove("gallery-lightbox-open");
+    lastTrigger?.focus({ preventScroll: true });
+  };
+
+  openButtons.forEach((button, index) => {
+    button.addEventListener("click", () => open(index, button));
+  });
+
+  closeButton.addEventListener("click", close);
+  previousButton.addEventListener("click", () => showImage(currentIndex - 1));
+  nextButton.addEventListener("click", () => showImage(currentIndex + 1));
+
+  lightbox.addEventListener("click", (event) => {
+    if (event.target === lightbox || event.target === stage) close();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (lightbox.hidden) return;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showImage(currentIndex - 1);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showImage(currentIndex + 1);
+      return;
+    }
+
+    if (event.key === "Tab") {
+      const controls = [closeButton, previousButton, nextButton];
+      const activeIndex = controls.indexOf(document.activeElement);
+      const direction = event.shiftKey ? -1 : 1;
+      const nextIndex = activeIndex === -1
+        ? 0
+        : (activeIndex + direction + controls.length) % controls.length;
+      event.preventDefault();
+      controls[nextIndex].focus();
+    }
+  });
+
+  [gallery, lightbox].forEach((area) => {
+    area.addEventListener("contextmenu", (event) => {
+      if (event.target.closest("img")) event.preventDefault();
+    });
+
+    area.addEventListener("dragstart", (event) => {
+      if (event.target.closest("img")) event.preventDefault();
+    });
+  });
+})();

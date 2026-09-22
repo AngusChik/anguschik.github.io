@@ -8,7 +8,7 @@
       name="description"
       content="An edge-to-edge gallery of selected images by A.C."
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=gallery-viewer-1" />
   </head>
   <body data-page="gallery">
     <div class="site-frame">
@@ -36,69 +36,69 @@
         -->
         <div class="gallery-grid reveal reveal-delay">
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/dsc_8473.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 1 of 11" data-gallery-open>
+              <img src="./images/dsc_8473.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test15-6698.jpg" width="1200" height="812" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 2 of 11" data-gallery-open>
+              <img src="./images/test15-6698.jpg" width="1200" height="812" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test15-5008.jpg" width="675" height="1200" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 3 of 11" data-gallery-open>
+              <img src="./images/test15-5008.jpg" width="675" height="1200" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/dsc_8506.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 4 of 11" data-gallery-open>
+              <img src="./images/dsc_8506.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/pic-43.jpg" width="1200" height="851" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 5 of 11" data-gallery-open>
+              <img src="./images/pic-43.jpg" width="1200" height="851" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test11-6136.jpg" width="1200" height="772" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 6 of 11" data-gallery-open>
+              <img src="./images/test11-6136.jpg" width="1200" height="772" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/pic-46.jpg" width="1200" height="817" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 7 of 11" data-gallery-open>
+              <img src="./images/pic-46.jpg" width="1200" height="817" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test15-6287.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 8 of 11" data-gallery-open>
+              <img src="./images/test15-6287.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test15a-2-20.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 9 of 11" data-gallery-open>
+              <img src="./images/test15a-2-20.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/test8-5286.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 10 of 11" data-gallery-open>
+              <img src="./images/test8-5286.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
 
           <figure class="gallery-item">
-            <span class="gallery-float">
-              <img src="./images/pic-7.jpg" width="1200" height="801" alt="" loading="lazy" />
-            </span>
+            <button class="gallery-float" type="button" aria-label="Expand image 11 of 11" data-gallery-open>
+              <img src="./images/pic-7.jpg" width="1200" height="801" alt="" loading="lazy" draggable="false" />
+            </button>
           </figure>
         </div>
       </main>
@@ -109,6 +109,29 @@
       </footer>
     </div>
 
-    <script src="./script.js"></script>
+    <div
+      class="gallery-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Expanded gallery image"
+      data-gallery-lightbox
+      hidden
+    >
+      <button class="gallery-lightbox-close" type="button" aria-label="Close expanded image" data-gallery-close>
+        &times;
+      </button>
+      <button class="gallery-lightbox-arrow gallery-lightbox-prev" type="button" aria-label="Previous image" data-gallery-prev>
+        &larr;
+      </button>
+      <figure class="gallery-lightbox-stage">
+        <img alt="" draggable="false" data-gallery-image />
+      </figure>
+      <button class="gallery-lightbox-arrow gallery-lightbox-next" type="button" aria-label="Next image" data-gallery-next>
+        &rarr;
+      </button>
+      <p class="gallery-lightbox-count" aria-live="polite" data-gallery-count></p>
+    </div>
+
+    <script src="./script.js?v=gallery-viewer-1"></script>
   </body>
 </html>
