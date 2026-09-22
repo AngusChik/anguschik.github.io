@@ -1306,6 +1306,10 @@ body[data-page="about"] .split-intro h1 {
    without card frames, captions, shadows, or decorative gaps.
 --------------------------------------------------------------------------- */
 @media (min-width: 1081px) {
+  body[data-page="about"] .site-frame {
+    width: calc(100% - 20px);
+  }
+
   body[data-page="gallery"] .site-frame {
     width: calc(100% - 20px);
     height: calc(100dvh - 20px);
