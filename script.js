@@ -173,7 +173,7 @@ if (document.startViewTransition && !reduceMotion) {
 
   const start = () => {
     if (timer) return;
-    timer = window.setInterval(showNext, 6500);
+    timer = window.setInterval(showNext, 20000);
   };
 
   const stop = () => {
