@@ -8,7 +8,7 @@
       name="description"
       content="Minimal portfolio website for A.C. featuring thoughtful design, selected work, and personal background."
     />
-    <link rel="stylesheet" href="./styles.css?v=clean-pointer-1" />
+    <link rel="stylesheet" href="./styles.css?v=home-rotation-1" />
   </head>
   <body data-page="home">
     <div class="site-frame">
@@ -25,12 +25,16 @@
       <main class="page page-home">
         <section class="hero-shell">
           <div class="hero-copy reveal">
-            <h1>Quiet systems, thoughtful work.</h1>
+            <h1 class="home-headline" data-home-headline aria-label="Quiet systems, thoughtful work.">
+              <span class="home-headline-phrase is-active" data-home-phrase aria-hidden="true">Quiet systems.</span>
+              <span class="home-headline-phrase" data-home-phrase aria-hidden="true">Thoughtful work.</span>
+            </h1>
             <div class="hero-rule"></div>
             <p class="hero-text">
               A minimal design practice focused on structure, typography, and
               digital experiences that feel calm and precise.
             </p>
+            <button class="home-headline-toggle" type="button" data-headline-toggle aria-label="Pause rotating headline" aria-pressed="false" hidden>Pause</button>
           </div>
         </section>
 
@@ -59,6 +63,6 @@
       </footer>
     </div>
 
-    <script src="./script.js?v=clean-pointer-1"></script>
+    <script src="./script.js?v=home-rotation-1"></script>
   </body>
 </html>

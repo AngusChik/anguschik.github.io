@@ -145,6 +145,60 @@ if (document.startViewTransition && !reduceMotion) {
 })();
 
 // ---------------------------------------------------------------------------
+// Home headline — alternate the two phrases every 20 seconds, without moving
+// the layout. Reduced motion keeps the initial phrase static.
+// ---------------------------------------------------------------------------
+(function initHomeHeadline() {
+  const headline = document.querySelector("[data-home-headline]");
+  if (!headline || reduceMotion) return;
+
+  const phrases = Array.from(headline.querySelectorAll("[data-home-phrase]"));
+  if (phrases.length < 2) return;
+
+  const toggle = document.querySelector("[data-headline-toggle]");
+  let currentIndex = 0;
+  let timer = 0;
+  let paused = false;
+
+  const showNext = () => {
+    phrases[currentIndex].classList.remove("is-active");
+    currentIndex = (currentIndex + 1) % phrases.length;
+    phrases[currentIndex].classList.add("is-active");
+    headline.dataset.activePhrase = String(currentIndex + 1);
+  };
+
+  const stop = () => {
+    if (timer) window.clearInterval(timer);
+    timer = 0;
+  };
+
+  const start = () => {
+    if (timer || paused || document.hidden) return;
+    timer = window.setInterval(showNext, 20000);
+  };
+
+  headline.dataset.activePhrase = "1";
+  start();
+
+  if (toggle) {
+    toggle.hidden = false;
+    toggle.addEventListener("click", () => {
+      paused = !paused;
+      toggle.textContent = paused ? "Resume" : "Pause";
+      toggle.setAttribute("aria-pressed", String(paused));
+      toggle.setAttribute("aria-label", paused ? "Resume rotating headline" : "Pause rotating headline");
+      if (paused) stop();
+      else start();
+    });
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else start();
+  });
+})();
+
+// ---------------------------------------------------------------------------
 // About slideshow — four three-image compositions crossfade as complete sets.
 // The first set remains static when reduced motion is requested.
 // ---------------------------------------------------------------------------
