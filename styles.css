@@ -474,6 +474,12 @@ body[data-page="about"] .split-intro h1 {
   flex-direction: column;
 }
 
+body[data-page="about"] .split-intro p,
+body[data-page="about"] .split-intro li {
+  text-wrap: pretty;
+  text-wrap: balance;
+}
+
 .about-note {
   margin: 0.9rem 0 0;
   color: var(--text);
