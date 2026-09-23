@@ -71,6 +71,17 @@ if (document.startViewTransition && !reduceMotion) {
   const frame = document.querySelector(".site-frame");
   if (!frame) return;
 
+  // On the photo-heavy gallery, move a single decorative layer instead of
+  // changing inherited CSS variables across every photo on each pointer frame.
+  const galleryGlow = document.body.dataset.page === "gallery"
+    ? document.createElement("span")
+    : null;
+  if (galleryGlow) {
+    galleryGlow.className = "gallery-spotlight";
+    galleryGlow.setAttribute("aria-hidden", "true");
+    frame.prepend(galleryGlow);
+  }
+
   // CSS centers the glow so resizing it cannot offset it from the pointer.
   let raf = 0;
   let px = 0;
@@ -79,18 +90,27 @@ if (document.startViewTransition && !reduceMotion) {
   const hide = () => {
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
-    frame.style.setProperty("--spotlight-opacity", "0");
+    if (galleryGlow) galleryGlow.style.opacity = "0";
+    else frame.style.setProperty("--spotlight-opacity", "0");
   };
 
   frame.addEventListener("pointermove", (e) => {
-    const rect = frame.getBoundingClientRect();
-    px = e.clientX - rect.left;
-    py = e.clientY - rect.top;
+    px = e.clientX;
+    py = e.clientY;
     if (raf) return;
     raf = requestAnimationFrame(() => {
-      frame.style.setProperty("--sx", `${px}px`);
-      frame.style.setProperty("--sy", `${py}px`);
-      frame.style.setProperty("--spotlight-opacity", "1");
+      // Read geometry once per rendered frame, not once per pointer event.
+      const rect = frame.getBoundingClientRect();
+      const x = px - rect.left;
+      const y = py - rect.top;
+      if (galleryGlow) {
+        galleryGlow.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+        galleryGlow.style.opacity = "1";
+      } else {
+        frame.style.setProperty("--sx", `${x}px`);
+        frame.style.setProperty("--sy", `${y}px`);
+        frame.style.setProperty("--spotlight-opacity", "1");
+      }
       raf = 0;
     });
   });
@@ -98,6 +118,9 @@ if (document.startViewTransition && !reduceMotion) {
   frame.addEventListener("pointerleave", hide);
   frame.addEventListener("pointercancel", hide);
   window.addEventListener("blur", hide);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) hide();
+  });
 })();
 
 // ---------------------------------------------------------------------------

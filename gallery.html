@@ -8,7 +8,7 @@
       name="description"
       content="An edge-to-edge gallery of selected images by A.C."
     />
-    <link rel="stylesheet" href="./styles.css?v=gallery-touch-2" />
+    <link rel="stylesheet" href="./styles.css?v=gallery-smooth-1" />
   </head>
   <body data-page="gallery">
     <div class="site-frame">
@@ -33,7 +33,7 @@
           To change one, swap its src and keep the width/height matched to the
           image's real pixel ratio so the masonry layout stays stable on load.
         -->
-        <div class="gallery-grid reveal reveal-delay">
+        <div class="gallery-grid">
           <figure class="gallery-item">
             <button class="gallery-float" type="button" aria-label="Expand image 1 of 47" data-gallery-open>
               <img src="./images/dsc_8473-blurred.jpg" width="1200" height="801" alt="Portrait beside a black BMW in a parking garage" loading="lazy" decoding="async" draggable="false" />
@@ -339,7 +339,7 @@
         &larr;
       </button>
       <figure class="gallery-lightbox-stage">
-        <img alt="" draggable="false" data-gallery-image />
+        <img alt="" decoding="async" draggable="false" data-gallery-image />
       </figure>
       <button class="gallery-lightbox-arrow gallery-lightbox-next" type="button" aria-label="Next image" data-gallery-next>
         &rarr;
@@ -347,6 +347,6 @@
       <p class="gallery-lightbox-count" aria-live="polite" data-gallery-count></p>
     </div>
 
-    <script src="./script.js?v=gallery-touch-2"></script>
+    <script src="./script.js?v=gallery-smooth-1"></script>
   </body>
 </html>

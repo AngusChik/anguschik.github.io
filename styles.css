@@ -79,7 +79,8 @@ a {
 
 /* Compact, borderless pointer glow. The gradient fades out before its edge;
    percentage centering keeps its size independent of the pointer tracking. */
-.site-frame::before {
+.site-frame::before,
+.site-frame > .gallery-spotlight {
   content: "";
   position: absolute;
   top: 0;
@@ -108,8 +109,21 @@ a {
   z-index: 1;
 }
 
+.site-frame > .gallery-spotlight {
+  position: absolute;
+  z-index: 0;
+  /* The radial gradient already fades smoothly; no filtered surface needed. */
+  filter: none;
+  contain: strict;
+}
+
+body[data-page="gallery"] .site-frame::before {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce), (pointer: coarse) {
-  .site-frame::before {
+  .site-frame::before,
+  .site-frame > .gallery-spotlight {
     display: none;
   }
 }
@@ -1520,15 +1534,12 @@ body[data-page="about"] .split-intro li {
   display: block;
   width: 100%;
   height: auto;
-  filter: grayscale(0.06) brightness(0.96) contrast(1.02);
-  transition:
-    filter 360ms var(--ease),
-    transform 480ms var(--ease);
+  /* Keep hover compositor-only, with no per-photo colour-filter surfaces. */
+  transition: transform 220ms var(--ease);
 }
 
 @media (hover: hover) {
   .gallery-item:hover img {
-    filter: grayscale(0) brightness(1.02) contrast(1.03);
     transform: scale(1.025);
   }
 }
@@ -1543,7 +1554,7 @@ body[data-page="about"] .split-intro li {
   align-items: center;
   padding: clamp(1rem, 2vw, 2rem);
   background: rgba(7, 7, 6, 0.95);
-  backdrop-filter: blur(16px);
+  /* The near-opaque backdrop needs no costly full-window blur. */
   animation: gallery-lightbox-in 180ms ease-out;
   transition: opacity 160ms ease-out;
   touch-action: pinch-zoom;
@@ -1652,10 +1663,6 @@ body.gallery-lightbox-open {
 }
 
 @media (pointer: coarse) {
-  .gallery-lightbox {
-    backdrop-filter: none;
-  }
-
   .gallery-lightbox-close,
   .gallery-lightbox-arrow {
     min-width: 44px;
