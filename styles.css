@@ -457,6 +457,10 @@ body[data-page="about"] .split-page {
 
 body[data-page="about"] .split-intro {
   justify-content: flex-start;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-line) transparent;
 }
 
 body[data-page="about"] .split-intro h1 {
@@ -519,7 +523,8 @@ body[data-page="about"] .split-intro h1 {
   font-size: 0.76rem;
 }
 
-.about-use-cases-list {
+.about-use-cases-list,
+.about-guidance-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -528,7 +533,13 @@ body[data-page="about"] .split-intro h1 {
   gap: 0.42rem;
 }
 
-.about-use-cases-list li {
+.about-guidance-list {
+  max-width: 52ch;
+  margin-top: 0.65rem;
+}
+
+.about-use-cases-list li,
+.about-guidance-list li {
   font-size: 0.94rem;
   color: var(--muted);
   line-height: 1.55;
@@ -536,7 +547,8 @@ body[data-page="about"] .split-intro h1 {
   position: relative;
 }
 
-.about-use-cases-list li::before {
+.about-use-cases-list li::before,
+.about-guidance-list li::before {
   content: "–";
   position: absolute;
   left: 0;
