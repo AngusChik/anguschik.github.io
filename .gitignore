@@ -1,3 +1,6 @@
 .claude/
 .DS_Store
 Thumbs.db
+
+# Photo intentionally excluded from all website pages and published assets.
+**/[tT][eE][sS][tT]8-4866.*
