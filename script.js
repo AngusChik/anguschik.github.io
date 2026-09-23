@@ -71,34 +71,33 @@ if (document.startViewTransition && !reduceMotion) {
   const frame = document.querySelector(".site-frame");
   if (!frame) return;
 
-  // Half the blob's size (see .site-frame::before width/height) so the gradient
-  // is centred on the pointer. Moving via transform keeps this off the paint
-  // path entirely.
-  const HALF = 380;
+  // CSS centers the glow so resizing it cannot offset it from the pointer.
   let raf = 0;
   let px = 0;
   let py = 0;
 
-  const rest = () => {
-    const rect = frame.getBoundingClientRect();
-    frame.style.setProperty("--sx", `${rect.width / 2 - HALF}px`);
-    frame.style.setProperty("--sy", `${rect.height * 0.3 - HALF}px`);
+  const hide = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    frame.style.setProperty("--spotlight-opacity", "0");
   };
-  rest();
 
   frame.addEventListener("pointermove", (e) => {
     const rect = frame.getBoundingClientRect();
-    px = e.clientX - rect.left - HALF;
-    py = e.clientY - rect.top - HALF;
+    px = e.clientX - rect.left;
+    py = e.clientY - rect.top;
     if (raf) return;
     raf = requestAnimationFrame(() => {
       frame.style.setProperty("--sx", `${px}px`);
       frame.style.setProperty("--sy", `${py}px`);
+      frame.style.setProperty("--spotlight-opacity", "1");
       raf = 0;
     });
   });
 
-  frame.addEventListener("pointerleave", rest);
+  frame.addEventListener("pointerleave", hide);
+  frame.addEventListener("pointercancel", hide);
+  window.addEventListener("blur", hide);
 })();
 
 // ---------------------------------------------------------------------------
