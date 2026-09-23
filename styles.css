@@ -303,6 +303,30 @@ h2 {
   color: var(--muted);
 }
 
+.home-gallery-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.2rem;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.home-gallery-button:hover,
+.home-gallery-button:focus-visible {
+  background: var(--accent);
+  color: var(--bg);
+}
+
 /* Picture display — a single framed photo in the hero's side column */
 .hero-photo {
   margin: 0;
