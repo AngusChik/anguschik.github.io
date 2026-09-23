@@ -9,7 +9,7 @@ const start = source.indexOf('(function initGalleryViewer()');
 assert(start >= 0, 'Gallery viewer must exist');
 const viewer = source.slice(start, source.indexOf('\n})();', start) + 6);
 
-function setup({ reducedMotion = false, missingGallery = false } = {}) {
+function setup({ reducedMotion = false, missingGallery = false, random = () => 0.999999, photoCount = 4 } = {}) {
   let now = 1000;
   let nextId = 1;
   let document;
@@ -24,6 +24,7 @@ function setup({ reducedMotion = false, missingGallery = false } = {}) {
       this.parent = parent;
       this.events = {};
       this.attributes = {};
+      this.children = [];
       this.style = { removeProperty(name) { delete this[name]; } };
       this.classes = new Set();
       this.classList = {
@@ -58,6 +59,10 @@ function setup({ reducedMotion = false, missingGallery = false } = {}) {
     closest(selector) { return selector === 'button' && this.tag === 'button' ? this : this.parent?.closest(selector); }
     setAttribute(name, value) { this.attributes[name] = value; }
     removeAttribute(name) { delete this.attributes[name]; }
+    append(...nodes) {
+      this.children = this.children.filter(node => !nodes.includes(node));
+      this.children.push(...nodes);
+    }
     focus() { document.activeElement = this; }
     getClientRects() { return this.hidden ? [] : [{}]; }
     setPointerCapture(id) { this.captures.add(id); }
@@ -92,12 +97,18 @@ function setup({ reducedMotion = false, missingGallery = false } = {}) {
   const previous = new Element('button', lightbox);
   const next = new Element('button', lightbox);
   const count = new Element('p', lightbox);
-  const buttons = Array.from({ length: 4 }, (_, i) => {
-    const button = new Element('button', gallery);
-    button.querySelector = () => ({ src: `photo-${i + 1}.jpg` });
+  const buttons = Array.from({ length: photoCount }, (_, i) => {
+    const tile = new Element('figure', gallery);
+    const button = new Element('button', tile);
+    const photo = { src: `photo-${i + 1}.jpg` };
+    button.querySelector = () => photo;
+    tile.children.push(button);
+    gallery.children.push(tile);
     return button;
   });
-  gallery.querySelectorAll = () => buttons;
+  gallery.querySelectorAll = selector => selector === '.gallery-item'
+    ? gallery.children
+    : gallery.children.map(tile => tile.children[0]);
   lightbox.querySelector = selector => ({
     '[data-gallery-image]': image, '[data-gallery-close]': close,
     '[data-gallery-prev]': previous, '[data-gallery-next]': next,
@@ -108,8 +119,11 @@ function setup({ reducedMotion = false, missingGallery = false } = {}) {
     '[data-gallery-lightbox]': lightbox, '.site-frame': frame
   })[selector];
 
+  const testMath = Object.create(Math);
+  testMath.random = random;
   vm.runInNewContext(viewer, {
     document, window, reduceMotion: reducedMotion, Date: { now: () => now },
+    Math: testMath,
     Image: class { constructor() { preloads.push(this); } }
   });
 
@@ -326,4 +340,73 @@ test('other pages are left untouched', () => {
   const s = setup({ missingGallery: true });
   assert.equal(s.preloads.length, 0);
   assert.equal(Object.keys(s.lightbox.events).length, 0);
+});
+
+test('shuffle moves every existing photo exactly once and synchronizes labels and viewer order', () => {
+  const s = setup({ random: () => 0 });
+  const ordered = s.gallery.querySelectorAll('[data-gallery-open]');
+  assert.deepEqual(ordered, [s.buttons[1], s.buttons[2], s.buttons[3], s.buttons[0]]);
+  assert.equal(new Set(ordered).size, s.buttons.length);
+  ordered.forEach((button, index) => {
+    assert.equal(button.attributes['aria-label'], `Expand image ${index + 1} of 4`);
+    button.dispatch('click');
+    assert.equal(s.image.src, button.querySelector('img').src);
+    assert.equal(s.count.textContent, `${index + 1} / 4`);
+    s.close.dispatch('click');
+    assert.equal(s.document.activeElement, button);
+  });
+  ordered[0].dispatch('click');
+  s.next.dispatch('click');
+  assert.equal(s.image.src, 'photo-3.jpg');
+  s.swipe(-130, 0);
+  assert.equal(s.image.src, 'photo-4.jpg');
+  assert.deepEqual(s.preloads.map(photo => photo.src), ['photo-3.jpg', 'photo-1.jpg']);
+});
+
+test('new visits shuffle afresh, while opening, closing and resizing preserve the current order', () => {
+  const first = setup({ random: () => 0 });
+  const second = setup({ random: () => 0.5 });
+  const order = s => s.gallery.querySelectorAll('[data-gallery-open]').map(button => button.querySelector('img').src);
+  assert.notDeepEqual(order(first), order(second));
+  const initialOrder = order(first);
+  first.buttons[0].dispatch('click');
+  first.close.dispatch('click');
+  first.window.dispatch('resize');
+  first.window.dispatch('pageshow', { persisted: false });
+  assert.deepEqual(order(first), initialOrder);
+  assert.equal(first.frames.size, 0);
+  assert.equal(first.timers.size, 0);
+});
+
+test('Back/Forward restores reshuffle and keep existing click handlers and focus working', () => {
+  const s = setup({ random: () => 0 });
+  s.buttons[0].dispatch('click');
+  s.window.dispatch('pageshow', { persisted: true });
+  assert.equal(s.lightbox.hidden, true);
+  assert.equal(s.frame.attributes.inert, undefined);
+  const ordered = s.gallery.querySelectorAll('[data-gallery-open]');
+  assert.deepEqual(ordered, [s.buttons[2], s.buttons[3], s.buttons[0], s.buttons[1]]);
+  ordered[2].dispatch('click');
+  assert.equal(s.count.textContent, '3 / 4');
+  assert.equal(s.image.src, 'photo-1.jpg');
+  s.next.dispatch('click');
+  assert.equal(s.image.src, 'photo-2.jpg');
+  s.close.dispatch('click');
+  assert.equal(s.document.activeElement, ordered[2]);
+  for (const button of ordered) assert.equal(button.events.click.length, 1);
+});
+
+test('shuffle supports reduced motion, single photos and an empty gallery', () => {
+  const reduced = setup({ reducedMotion: true, random: () => 0 });
+  reduced.gallery.querySelectorAll('[data-gallery-open]')[0].dispatch('click');
+  assert.equal(reduced.image.src, 'photo-2.jpg');
+  assert.equal(reduced.animations.length, 0);
+  const single = setup({ photoCount: 1 });
+  single.buttons[0].dispatch('click');
+  single.next.dispatch('click');
+  assert.equal(single.image.src, 'photo-1.jpg');
+  assert.equal(single.count.textContent, '1 / 1');
+  const empty = setup({ photoCount: 0 });
+  assert.equal(empty.preloads.length, 0);
+  assert.equal(Object.keys(empty.lightbox.events).length, 0);
 });

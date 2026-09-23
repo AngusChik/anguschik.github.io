@@ -287,8 +287,8 @@ if (document.startViewTransition && !reduceMotion) {
   if (!gallery || !lightbox) return;
 
   const frame = document.querySelector(".site-frame");
-  const openButtons = Array.from(gallery.querySelectorAll("[data-gallery-open]"));
-  const sourceImages = openButtons.map((button) => button.querySelector("img"));
+  let openButtons = Array.from(gallery.querySelectorAll("[data-gallery-open]"));
+  let sourceImages = openButtons.map((button) => button.querySelector("img"));
   const expandedImage = lightbox.querySelector("[data-gallery-image]");
   const closeButton = lightbox.querySelector("[data-gallery-close]");
   const previousButton = lightbox.querySelector("[data-gallery-prev]");
@@ -299,6 +299,24 @@ if (document.startViewTransition && !reduceMotion) {
   if (!sourceImages.length || !expandedImage || !closeButton || !previousButton || !nextButton || !count || !stage) {
     return;
   }
+
+  const shuffleGallery = () => {
+    const items = Array.from(gallery.querySelectorAll(".gallery-item"));
+    // Fisher-Yates: shuffle existing tiles once, with no cloning, timers or
+    // layout reads. CSS columns still handle the responsive masonry layout.
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    gallery.append(...items);
+    openButtons = Array.from(gallery.querySelectorAll("[data-gallery-open]"));
+    sourceImages = openButtons.map((button) => button.querySelector("img"));
+    openButtons.forEach((button, index) => {
+      button.setAttribute("aria-label", `Expand image ${index + 1} of ${openButtons.length}`);
+    });
+  };
+
+  shuffleGallery();
 
   let currentIndex = 0;
   let lastTrigger = null;
@@ -380,8 +398,16 @@ if (document.startViewTransition && !reduceMotion) {
     }
   };
 
-  openButtons.forEach((button, index) => {
-    button.addEventListener("click", () => open(index, button));
+  openButtons.forEach((button) => {
+    button.addEventListener("click", () => open(openButtons.indexOf(button), button));
+  });
+
+  // Back/Forward can restore this document without rerunning its script.
+  // Treat that return as a new visit too, but never reshuffle during browsing.
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    if (!lightbox.hidden) finishClose();
+    shuffleGallery();
   });
 
   closeButton.addEventListener("click", () => close());
