@@ -59,6 +59,7 @@ function setup({ reducedMotion = false, missingGallery = false } = {}) {
     setAttribute(name, value) { this.attributes[name] = value; }
     removeAttribute(name) { delete this.attributes[name]; }
     focus() { document.activeElement = this; }
+    getClientRects() { return this.hidden ? [] : [{}]; }
     setPointerCapture(id) { this.captures.add(id); }
     hasPointerCapture(id) { return this.captures.has(id); }
     releasePointerCapture(id) {
@@ -173,6 +174,24 @@ test('horizontal swipes navigate once and wrap, including from the empty backdro
   assert.equal(s.count.textContent, '4 / 4');
   assert.equal(s.animations.at(-1).options.duration, 180);
   assert.equal(s.frames.size, 0);
+});
+
+test('mobile focus skips hidden arrows while swipes and keyboard navigation still work', () => {
+  const s = setup();
+  s.previous.hidden = true;
+  s.next.hidden = true;
+  s.buttons[0].dispatch('click');
+  for (const shiftKey of [false, true]) {
+    s.document.dispatch('keydown', { key: 'Tab', shiftKey });
+    assert.equal(s.document.activeElement, s.close);
+  }
+  s.swipe(-130, 0);
+  assert.equal(s.count.textContent, '2 / 4');
+  s.document.dispatch('keydown', { key: 'ArrowRight' });
+  assert.equal(s.count.textContent, '3 / 4');
+  s.swipe(0, 150);
+  s.advance(160);
+  assert.equal(s.lightbox.hidden, true);
 });
 
 test('downward swipe closes from image, stage or surrounding space and restores focus', () => {

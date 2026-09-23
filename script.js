@@ -484,7 +484,9 @@ if (document.startViewTransition && !reduceMotion) {
     }
 
     if (event.key === "Tab") {
-      const controls = [closeButton, previousButton, nextButton];
+      const controls = [closeButton, previousButton, nextButton].filter(
+        (control) => control.getClientRects().length > 0
+      );
       const activeIndex = controls.indexOf(document.activeElement);
       const direction = event.shiftKey ? -1 : 1;
       const nextIndex = activeIndex === -1
