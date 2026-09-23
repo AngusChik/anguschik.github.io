@@ -256,7 +256,7 @@ if (document.startViewTransition && !reduceMotion) {
 })();
 
 // ---------------------------------------------------------------------------
-// Gallery viewer — accessible click-to-expand navigation.
+// Gallery viewer — tap to expand, swipe to browse, swipe down to dismiss.
 // ---------------------------------------------------------------------------
 (function initGalleryViewer() {
   const gallery = document.querySelector(".gallery-grid");
@@ -273,22 +273,59 @@ if (document.startViewTransition && !reduceMotion) {
   const count = lightbox.querySelector("[data-gallery-count]");
   const stage = lightbox.querySelector(".gallery-lightbox-stage");
 
-  if (!sourceImages.length || !expandedImage || !closeButton || !previousButton || !nextButton || !count) {
+  if (!sourceImages.length || !expandedImage || !closeButton || !previousButton || !nextButton || !count || !stage) {
     return;
   }
 
   let currentIndex = 0;
   let lastTrigger = null;
+  let gesture = null;
+  let dragFrame = 0;
+  let closeTimer = 0;
+  let ignoreClicksUntil = 0;
+  let imageAnimation = null;
+  // Only the two neighbouring photos are warmed, not the entire gallery.
+  const neighbours = [new Image(), new Image()];
 
-  const showImage = (index) => {
+  const resetGesture = () => {
+    const pointerId = gesture?.id;
+    gesture = null;
+    if (dragFrame) window.cancelAnimationFrame(dragFrame);
+    dragFrame = 0;
+    lightbox.classList.remove("is-dragging");
+    stage.style.removeProperty("transform");
+    stage.style.removeProperty("opacity");
+    if (pointerId != null && lightbox.hasPointerCapture(pointerId)) {
+      lightbox.releasePointerCapture(pointerId);
+    }
+  };
+
+  const showImage = (index, direction = 0) => {
+    resetGesture();
+    imageAnimation?.cancel();
     currentIndex = (index + sourceImages.length) % sourceImages.length;
     const source = sourceImages[currentIndex];
     expandedImage.src = source.currentSrc || source.src;
     expandedImage.alt = `Expanded gallery image ${currentIndex + 1} of ${sourceImages.length}`;
     count.textContent = `${currentIndex + 1} / ${sourceImages.length}`;
+    neighbours.forEach((image, offset) => {
+      const adjacent = sourceImages[(currentIndex + (offset ? 1 : sourceImages.length - 1)) % sourceImages.length];
+      image.decoding = "async";
+      image.src = adjacent.currentSrc || adjacent.src;
+    });
+    if (direction && !reduceMotion) {
+      imageAnimation = stage.animate([
+        { transform: `translate3d(${direction * 24}px, 0, 0)`, opacity: 0.65 },
+        { transform: "translate3d(0, 0, 0)", opacity: 1 }
+      ], { duration: 180, easing: "ease-out" });
+    }
   };
 
   const open = (index, trigger) => {
+    if (Date.now() < ignoreClicksUntil) return;
+    window.clearTimeout(closeTimer);
+    closeTimer = 0;
+    lightbox.classList.remove("is-closing");
     lastTrigger = trigger;
     showImage(index);
     lightbox.hidden = false;
@@ -297,25 +334,131 @@ if (document.startViewTransition && !reduceMotion) {
     closeButton.focus({ preventScroll: true });
   };
 
-  const close = () => {
-    if (lightbox.hidden) return;
+  const finishClose = () => {
+    window.clearTimeout(closeTimer);
+    closeTimer = 0;
     lightbox.hidden = true;
+    lightbox.classList.remove("is-closing");
+    resetGesture();
+    imageAnimation?.cancel();
     frame?.removeAttribute("inert");
     document.body.classList.remove("gallery-lightbox-open");
     lastTrigger?.focus({ preventScroll: true });
+  };
+
+  const close = (animate = false) => {
+    if (lightbox.hidden) return;
+    if (animate && !reduceMotion) {
+      if (closeTimer) return;
+      lightbox.classList.add("is-closing");
+      closeTimer = window.setTimeout(finishClose, 160);
+    } else {
+      finishClose();
+    }
   };
 
   openButtons.forEach((button, index) => {
     button.addEventListener("click", () => open(index, button));
   });
 
-  closeButton.addEventListener("click", close);
-  previousButton.addEventListener("click", () => showImage(currentIndex - 1));
-  nextButton.addEventListener("click", () => showImage(currentIndex + 1));
+  closeButton.addEventListener("click", () => close());
+  previousButton.addEventListener("click", () => showImage(currentIndex - 1, -1));
+  nextButton.addEventListener("click", () => showImage(currentIndex + 1, 1));
+
+  // A swipe must not produce a follow-up click on the backdrop or a control.
+  lightbox.addEventListener("click", (event) => {
+    if (Date.now() < ignoreClicksUntil || closeTimer) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
 
   lightbox.addEventListener("click", (event) => {
     if (event.target === lightbox || event.target === stage) close();
   });
+
+  const cancelGesture = () => {
+    if (!gesture) return;
+    ignoreClicksUntil = Date.now() + 350;
+    resetGesture();
+  };
+
+  lightbox.addEventListener("pointerdown", (event) => {
+    if (lightbox.hidden || closeTimer || event.pointerType === "mouse") return;
+    if (!event.isPrimary) {
+      cancelGesture();
+      return;
+    }
+    // Keep buttons and native pinch-zoom independent of photo navigation.
+    if (event.target.closest("button") || (window.visualViewport?.scale || 1) > 1.05) return;
+    imageAnimation?.cancel();
+    gesture = {
+      id: event.pointerId, x: event.clientX, y: event.clientY,
+      dx: 0, dy: 0, axis: null, moved: false,
+      width: lightbox.clientWidth, height: lightbox.clientHeight
+    };
+  });
+
+  lightbox.addEventListener("pointermove", (event) => {
+    if (!gesture || event.pointerId !== gesture.id || closeTimer) return;
+    gesture.dx = event.clientX - gesture.x;
+    gesture.dy = event.clientY - gesture.y;
+    const x = Math.abs(gesture.dx);
+    const y = Math.abs(gesture.dy);
+    if (Math.max(x, y) < 12 && !gesture.moved) return;
+    gesture.moved = true;
+    if (!gesture.axis) {
+      if (x > y * 1.2) gesture.axis = "x";
+      else if (y > x * 1.2) gesture.axis = "y";
+      else return;
+      lightbox.setPointerCapture(event.pointerId);
+      lightbox.classList.add("is-dragging");
+    }
+    if (reduceMotion || dragFrame) return;
+    // One compositor-only update per frame; no layout reads while dragging.
+    dragFrame = window.requestAnimationFrame(() => {
+      dragFrame = 0;
+      if (!gesture) return;
+      const dragX = gesture.axis === "x" ? gesture.dx * 0.65 : 0;
+      const dragY = gesture.axis === "y" ? Math.max(0, gesture.dy) * 0.75 : 0;
+      stage.style.transform = `translate3d(${dragX}px, ${dragY}px, 0)`;
+      stage.style.opacity = String(1 - Math.min(dragY / gesture.height, 0.45));
+    });
+  });
+
+  lightbox.addEventListener("pointerup", (event) => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const swipe = gesture;
+    // Include the final touch position, even if its last frame was coalesced.
+    swipe.dx = event.clientX - swipe.x;
+    swipe.dy = event.clientY - swipe.y;
+    if (swipe.moved) ignoreClicksUntil = Date.now() + 350;
+    const horizontalThreshold = Math.max(45, Math.min(80, swipe.width * 0.14));
+    const closeThreshold = Math.max(65, Math.min(110, swipe.height * 0.1));
+    if (swipe.axis === "y" && swipe.dy > closeThreshold && swipe.dy > Math.abs(swipe.dx) * 1.2) {
+      // Leave the photo at the finger's final position while the view fades.
+      if (dragFrame) window.cancelAnimationFrame(dragFrame);
+      dragFrame = 0;
+      gesture = null;
+      if (lightbox.hasPointerCapture(event.pointerId)) lightbox.releasePointerCapture(event.pointerId);
+      close(true);
+    } else if (swipe.axis === "x" && Math.abs(swipe.dx) > horizontalThreshold && Math.abs(swipe.dx) > Math.abs(swipe.dy) * 1.2) {
+      const direction = swipe.dx < 0 ? 1 : -1;
+      showImage(currentIndex + direction, direction);
+    } else {
+      resetGesture();
+    }
+  });
+
+  lightbox.addEventListener("pointercancel", (event) => {
+    if (event.pointerId === gesture?.id) cancelGesture();
+  });
+  lightbox.addEventListener("lostpointercapture", (event) => {
+    // Touch starts with implicit capture on the image. Its bubbled capture-loss
+    // event is expected when we transfer the swipe to the surrounding viewer.
+    if (event.target === lightbox && event.pointerId === gesture?.id) cancelGesture();
+  });
+  window.addEventListener("blur", cancelGesture);
 
   document.addEventListener("keydown", (event) => {
     if (lightbox.hidden) return;
@@ -326,15 +469,17 @@ if (document.startViewTransition && !reduceMotion) {
       return;
     }
 
+    if (closeTimer) return;
+
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      showImage(currentIndex - 1);
+      showImage(currentIndex - 1, -1);
       return;
     }
 
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      showImage(currentIndex + 1);
+      showImage(currentIndex + 1, 1);
       return;
     }
 
