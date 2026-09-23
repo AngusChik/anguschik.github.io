@@ -155,10 +155,8 @@ if (document.startViewTransition && !reduceMotion) {
   const phrases = Array.from(headline.querySelectorAll("[data-home-phrase]"));
   if (phrases.length < 2) return;
 
-  const toggle = document.querySelector("[data-headline-toggle]");
   let currentIndex = 0;
   let timer = 0;
-  let paused = false;
 
   const showNext = () => {
     phrases[currentIndex].classList.remove("is-active");
@@ -173,24 +171,12 @@ if (document.startViewTransition && !reduceMotion) {
   };
 
   const start = () => {
-    if (timer || paused || document.hidden) return;
+    if (timer || document.hidden) return;
     timer = window.setInterval(showNext, 20000);
   };
 
   headline.dataset.activePhrase = "1";
   start();
-
-  if (toggle) {
-    toggle.hidden = false;
-    toggle.addEventListener("click", () => {
-      paused = !paused;
-      toggle.textContent = paused ? "Resume" : "Pause";
-      toggle.setAttribute("aria-pressed", String(paused));
-      toggle.setAttribute("aria-label", paused ? "Resume rotating headline" : "Pause rotating headline");
-      if (paused) stop();
-      else start();
-    });
-  }
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stop();

@@ -274,22 +274,6 @@ h2 {
   transform: none;
 }
 
-.home-headline-toggle {
-  padding: 0.5rem 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.home-headline-toggle:hover,
-.home-headline-toggle:focus-visible {
-  color: var(--text);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .home-headline-phrase {
     transition: none;
