@@ -115,7 +115,7 @@ test('photo wall avoids oversized entrance layers and filtered animation surface
   const html = fs.readFileSync(path.join(root, 'gallery.html'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
   assert.match(html, /class="gallery-grid"/);
-  assert.equal((html.match(/data-gallery-open/g) || []).length, 46);
+  assert.equal((html.match(/data-gallery-open/g) || []).length, 60);
   assert.doesNotMatch(html, /class="gallery-grid[^\"]*reveal/);
   assert.doesNotMatch(css.match(/\.gallery-item img\s*\{([^}]+)\}/)[1], /\bfilter\s*:/);
   assert.doesNotMatch(css.match(/\.gallery-item:hover img\s*\{([^}]+)\}/)[1], /\bfilter\s*:/);
