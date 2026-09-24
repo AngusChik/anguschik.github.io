@@ -26,10 +26,10 @@ test('all local photo references exist, including cache-versioned updates', () =
   }
 });
 
-test('gallery labels match its 60 photos, including without JavaScript', () => {
+test('gallery labels match its 57 approved folder photos, including without JavaScript', () => {
   const html = fs.readFileSync(path.join(root, 'gallery.html'), 'utf8');
   const labels = [...html.matchAll(/aria-label="Expand image (\d+) of (\d+)"/g)];
-  assert.equal(labels.length, 60);
+  assert.equal(labels.length, 57);
   labels.forEach((label, index) => {
     assert.equal(Number(label[1]), index + 1);
     assert.equal(Number(label[2]), labels.length);
